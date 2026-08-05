@@ -3,10 +3,15 @@ import {
   ShoppingCart,
   Star,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function ProductCard({ product }) {
+  const navigate = useNavigate();
   return (
-    <div className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer">
+    <div
+  onClick={() => navigate(`/product/${product.id}`)}
+  className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
+>
 
       {/* Product Image */}
 
