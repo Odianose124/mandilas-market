@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   Global Styles
+========================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f5f5f5;
+  color: #222;
+}
+
+/* =========================
+   Top Banner Marquee
+========================= */
+
+.marquee-container {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  height: 42px;
+}
+
+.marquee-content {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  min-width: max-content;
+  animation: marquee 20s linear infinite;
+}
+
+.marquee-item {
+  white-space: nowrap;
+  margin-right: 80px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
