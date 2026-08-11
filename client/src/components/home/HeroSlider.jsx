@@ -1,5 +1,6 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import { useNavigate } from "react-router-dom";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -8,6 +9,12 @@ import "swiper/css/pagination";
 import slides from "../../data/slides";
 
 function HeroSlider() {
+  const navigate = useNavigate();
+
+  const handleShopNow = () => {
+    navigate("/shop");
+  };
+
   return (
     <div className="rounded-xl overflow-hidden shadow-md">
 
@@ -48,7 +55,11 @@ function HeroSlider() {
                     {slide.subtitle}
                   </p>
 
-                  <button className="mt-6 bg-green-600 hover:bg-green-700 transition px-6 py-3 rounded-lg font-semibold">
+                  <button
+                    type="button"
+                    onClick={handleShopNow}
+                    className="mt-6 bg-green-600 hover:bg-green-700 transition px-6 py-3 rounded-lg font-semibold"
+                  >
                     {slide.button}
                   </button>
 
