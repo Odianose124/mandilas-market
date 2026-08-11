@@ -1,11 +1,16 @@
+import { useNavigate } from "react-router-dom";
+
 function PromoCards() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex flex-col gap-5 h-[430px]">
 
-      {/* Card 1 */}
-
-      <div className="flex-1 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-6 text-white shadow-sm hover:shadow-lg transition duration-300 cursor-pointer">
-
+      {/* New Collection */}
+      <div
+        onClick={() => navigate("/shop?collection=new")}
+        className="flex-1 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg p-6 text-white shadow-sm hover:shadow-lg transition duration-300 cursor-pointer"
+      >
         <span className="text-sm uppercase tracking-widest">
           New Collection
         </span>
@@ -18,16 +23,23 @@ function PromoCards() {
           Shop directly from trusted Mandilas sellers.
         </p>
 
-        <button className="mt-6 bg-white text-orange-600 px-5 py-2 rounded-md font-semibold hover:bg-gray-100">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            navigate("/shop?collection=new");
+          }}
+          className="mt-6 bg-white text-orange-600 px-5 py-2 rounded-md font-semibold hover:bg-gray-100 active:bg-gray-200"
+        >
           Shop Now
         </button>
-
       </div>
 
-      {/* Card 2 */}
-
-      <div className="flex-1 bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-white shadow-sm hover:shadow-lg transition duration-300 cursor-pointer">
-
+      {/* Limited Offer */}
+      <div
+        onClick={() => navigate("/shop?offer=limited")}
+        className="flex-1 bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-white shadow-sm hover:shadow-lg transition duration-300 cursor-pointer"
+      >
         <span className="text-sm uppercase tracking-widest">
           Limited Offer
         </span>
@@ -40,10 +52,16 @@ function PromoCards() {
           Don't miss today's best fashion deals.
         </p>
 
-        <button className="mt-6 bg-white text-green-700 px-5 py-2 rounded-md font-semibold hover:bg-gray-100">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            navigate("/shop?offer=limited");
+          }}
+          className="mt-6 bg-white text-green-700 px-5 py-2 rounded-md font-semibold hover:bg-gray-100 active:bg-gray-200"
+        >
           View Deals
         </button>
-
       </div>
 
     </div>
