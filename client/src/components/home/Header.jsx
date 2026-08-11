@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import {
   Search,
   User,
@@ -7,9 +9,24 @@ import {
   Menu,
 } from "lucide-react";
 
+import { Link, useNavigate } from "react-router-dom";
+
+import { useCart } from "../../context/CartContext";
+import { useAuth } from "../../context/AuthContext";
+
 function Header() {
+
+  const { totalItems } = useCart();
+
+  const { user, logout } = useAuth();
+
+  const navigate = useNavigate();
+
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+
+    <header className="bg-white shadow-sm sticky top-0 z-50">
 
       <div className="max-w-[1400px] mx-auto px-4">
 
@@ -17,7 +34,10 @@ function Header() {
 
           {/* Logo */}
 
-          <div className="flex items-center gap-2 cursor-pointer">
+          <Link
+            to="/"
+            className="flex items-center gap-2"
+          >
 
             <div className="w-11 h-11 rounded-lg bg-green-600 flex items-center justify-center text-white font-bold text-xl">
               M
@@ -26,15 +46,18 @@ function Header() {
             <div className="hidden sm:block">
 
               <h2 className="text-2xl font-bold tracking-tight">
+
                 Mandilas
+
                 <span className="text-green-600">
                   Market
                 </span>
+
               </h2>
 
             </div>
 
-          </div>
+          </Link>
 
           {/* Search */}
 
@@ -56,7 +79,9 @@ function Header() {
             </div>
 
             <button className="bg-green-600 hover:bg-green-700 transition text-white font-semibold h-12 px-8 rounded-lg">
+
               SEARCH
+
             </button>
 
           </div>
@@ -65,17 +90,107 @@ function Header() {
 
           <div className="flex items-center gap-6">
 
-            <button className="hidden lg:flex items-center gap-2 hover:text-green-600 transition">
+            {/* Account */}
 
-              <User size={22} />
+            {user ? (
 
-              <span>
-                Account
-              </span>
+              <div
+                className="relative hidden lg:block"
+                onMouseEnter={() => setShowAccountMenu(true)}
+                onMouseLeave={() => setShowAccountMenu(false)}
+              >
 
-              <ChevronDown size={18} />
+                <button className="flex items-center gap-2 hover:text-green-600 transition">
 
-            </button>
+                  <User size={22} />
+
+                  <span className="font-semibold">
+
+                    Hi, {user.firstName}
+
+                  </span>
+
+                  <ChevronDown size={18} />
+
+                </button>
+
+                {showAccountMenu && (
+
+                  <div className="absolute right-0 top-full mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+
+                    <Link
+  to="/dashboard"
+  className="block px-5 py-4 hover:bg-gray-100 transition"
+>
+  👤 My Profile
+</Link>
+
+                    <Link
+                      to="/orders"
+                      className="block px-5 py-4 hover:bg-gray-100 transition"
+                    >
+                      📦 My Orders
+                    </Link>
+
+                    <Link
+                      to="/wishlist"
+                      className="block px-5 py-4 hover:bg-gray-100 transition"
+                    >
+                      ❤️ Wishlist
+                    </Link>
+
+                    <Link
+                      to="/addresses"
+                      className="block px-5 py-4 hover:bg-gray-100 transition"
+                    >
+                      📍 Saved Addresses
+                    </Link>
+
+                    <Link
+                      to="/settings"
+                      className="block px-5 py-4 hover:bg-gray-100 transition"
+                    >
+                      ⚙ Account Settings
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        logout();
+                        navigate("/");
+                      }}
+                      className="w-full text-left px-5 py-4 text-red-600 hover:bg-red-50 transition"
+                    >
+                      🚪 Logout
+                    </button>
+
+                  </div>
+
+                )}
+
+              </div>
+
+            ) : (
+
+              <Link
+                to="/login"
+                className="hidden lg:flex items-center gap-2 hover:text-green-600 transition"
+              >
+
+                <User size={22} />
+
+                <span>
+
+                  Account
+
+                </span>
+
+                <ChevronDown size={18} />
+
+              </Link>
+
+            )}
+
+                        {/* Help */}
 
             <button className="hidden lg:flex items-center gap-2 hover:text-green-600 transition">
 
@@ -89,19 +204,32 @@ function Header() {
 
             </button>
 
-            <button className="relative flex items-center gap-2 hover:text-green-600 transition">
+            {/* Cart */}
+
+            <Link
+              to="/cart"
+              className="relative flex items-center gap-2 hover:text-green-600 transition"
+            >
 
               <ShoppingCart size={24} />
 
-              <span className="hidden md:block">
+              <span className="hidden lg:block">
                 Cart
               </span>
 
-              <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-green-600 text-white text-xs flex items-center justify-center">
-                0
-              </div>
+              {totalItems > 0 && (
 
-            </button>
+                <div className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">
+
+                  {totalItems}
+
+                </div>
+
+              )}
+
+            </Link>
+
+            {/* Mobile Menu */}
 
             <button className="lg:hidden">
 
@@ -128,14 +256,16 @@ function Header() {
 
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search products, brands and categories"
                 className="w-full h-11 px-3 outline-none"
               />
 
             </div>
 
-            <button className="bg-green-600 text-white px-5 rounded-lg">
+            <button className="bg-green-600 hover:bg-green-700 text-white px-5 rounded-lg">
+
               Go
+
             </button>
 
           </div>
@@ -145,6 +275,7 @@ function Header() {
       </div>
 
     </header>
+
   );
 }
 

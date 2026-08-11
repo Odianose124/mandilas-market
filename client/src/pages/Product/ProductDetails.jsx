@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import products from "../../data/products";
+import reviews from "../../data/reviews";
+import { Link } from "react-router-dom";
+import { useCart } from "../../context/CartContext";
+import { useWishlist } from "../../context/WishlistContext";
 
 import {
   Heart,
@@ -10,11 +14,19 @@ import {
   ShieldCheck,
   RotateCcw,
   Store,
+  Eye,
 } from "lucide-react";
 
 function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+const {
+  addToWishlist,
+  removeFromWishlist,
+  isInWishlist,
+} = useWishlist();
 
   const product = products.find(
     (item) => item.id === Number(id)
@@ -22,6 +34,7 @@ function ProductDetails() {
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState("");
+  const wishlistActive = isInWishlist(product?.id);
 
   useEffect(() => {
     if (product) {
@@ -39,12 +52,18 @@ function ProductDetails() {
     );
   }
 
-  const productImages = [
-    product.image,
-    product.image,
-    product.image,
-    product.image,
-  ];
+  const productImages = product.images;
+  const productReviews = reviews.filter(
+  (review) => review.productId === product.id
+);
+
+const similarProducts = products
+  .filter(
+    (item) =>
+      item.category === product.category &&
+      item.id !== product.id
+  )
+  .slice(0, 4);
 
   return (
     <section className="max-w-7xl mx-auto px-4 py-8">
@@ -127,8 +146,8 @@ function ProductDetails() {
             <Star color="#d1d5db" size={20} />
 
             <span className="text-gray-600">
-              (245 Reviews)
-            </span>
+  ({product.reviews} Reviews)
+</span>
 
           </div>
 
@@ -154,7 +173,7 @@ function ProductDetails() {
 
             <div className="flex flex-wrap gap-3">
 
-              {["S", "M", "L", "XL"].map((size) => (
+              {product.specifications.sizes.map((size) => (
 
                 <button
                   key={size}
@@ -180,7 +199,9 @@ function ProductDetails() {
             <div className="flex gap-4">
 
               <div className="w-8 h-8 rounded-full bg-black border-2 cursor-pointer"></div>
+
               <div className="w-8 h-8 rounded-full bg-red-600 border-2 cursor-pointer"></div>
+
               <div className="w-8 h-8 rounded-full bg-blue-600 border-2 cursor-pointer"></div>
 
             </div>
@@ -227,7 +248,10 @@ function ProductDetails() {
 
           <div className="flex gap-4 mt-10">
 
-            <button className="flex-1 h-14 rounded-xl bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-3 transition">
+            <button
+  onClick={() => addToCart(product, quantity)}
+  className="flex-1 h-14 rounded-xl bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-3 transition"
+>
 
               <ShoppingCart size={20} />
 
@@ -235,11 +259,53 @@ function ProductDetails() {
 
             </button>
 
-            <button className="w-14 h-14 rounded-xl border hover:bg-gray-100 transition flex items-center justify-center">
+            <button
 
-              <Heart size={22} />
+  onClick={() => {
 
-            </button>
+    if (wishlistActive) {
+
+      removeFromWishlist(product.id);
+
+    } else {
+
+      addToWishlist(product);
+
+    }
+
+  }}
+
+  className={`w-14 h-14 rounded-xl border transition flex items-center justify-center ${
+    
+    wishlistActive
+
+      ? "bg-red-50 border-red-500"
+
+      : "hover:bg-gray-100"
+
+  }`}
+
+>
+
+
+  <Heart
+
+    size={22}
+
+    className={
+
+      wishlistActive
+
+        ? "text-red-600 fill-red-600"
+
+        : "text-gray-700"
+
+    }
+
+  />
+
+
+</button>
 
           </div>
 
@@ -264,67 +330,6 @@ function ProductDetails() {
               </div>
 
             </div>
-
-            {/* Seller Card */}
-
-<div className="mt-10 bg-white rounded-xl shadow border p-6">
-
-  <div className="flex items-center gap-4">
-
-    <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-
-      <Store
-        className="text-green-700"
-        size={28}
-      />
-
-    </div>
-
-    <div>
-
-      <h3 className="text-lg font-bold">
-        Mandilas Fashion Hub
-      </h3>
-
-      <p className="text-gray-500">
-        Verified Seller
-      </p>
-
-    </div>
-
-  </div>
-
-  <div className="flex items-center gap-2 mt-5">
-
-    <Star
-      fill="#fbbf24"
-      color="#fbbf24"
-      size={18}
-    />
-
-    <span className="font-semibold">
-      4.8 Seller Rating
-    </span>
-
-  </div>
-
-  <div className="grid grid-cols-2 gap-3 mt-6">
-
-    <button className="h-12 rounded-lg border border-green-600 text-green-700 font-semibold hover:bg-green-50 transition">
-
-      Chat Seller
-
-    </button>
-
-    <button className="h-12 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition">
-
-      Visit Store
-
-    </button>
-
-  </div>
-
-</div>
 
             <div className="flex gap-4">
 
@@ -363,12 +368,327 @@ function ProductDetails() {
             </div>
 
           </div>
+                    {/* Seller Card */}
+
+          <div className="mt-10 bg-white rounded-xl shadow border p-6">
+
+            <div className="flex items-center gap-4">
+
+              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+
+                <Store
+                  className="text-green-700"
+                  size={28}
+                />
+
+              </div>
+
+              <div>
+
+                <h3 className="text-lg font-bold">
+  {product.seller}
+</h3>
+
+                <p className="text-gray-500">
+                  Verified Seller
+                </p>
+
+              </div>
+
+            </div>
+
+            <div className="flex items-center gap-2 mt-5">
+
+              <Star
+                fill="#fbbf24"
+                color="#fbbf24"
+                size={18}
+              />
+
+              <span className="font-semibold">
+  {product.rating} Seller Rating
+</span>
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-6">
+
+              <button className="h-12 rounded-lg border border-green-600 text-green-700 font-semibold hover:bg-green-50 transition">
+
+                Chat Seller
+
+              </button>
+
+              <button className="h-12 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition">
+
+                Visit Store
+
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* Product Description */}
+
+          <div className="mt-10 bg-white rounded-xl shadow border p-6">
+
+            <h2 className="text-2xl font-bold mb-5">
+              Product Description
+            </h2>
+
+            <p className="text-gray-600 leading-8">
+  {product.description}
+</p>
+
+            <p className="text-gray-600 leading-8 mt-4">
+
+              Carefully crafted to ensure long-lasting performance, this
+              product offers excellent value for money and is supplied by
+              verified sellers on Mandilas Market.
+
+            </p>
+
+          </div>
+
+          {/* Product Specifications */}
+
+<div className="mt-10 bg-white rounded-xl shadow border p-6">
+
+  <h2 className="text-2xl font-bold mb-6">
+    Product Specifications
+  </h2>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Brand</span>
+      <span className="font-semibold">{product.brand}</span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Category</span>
+      <span className="font-semibold">{product.category}</span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Material</span>
+      <span className="font-semibold">
+        {product.specifications.material}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Colour</span>
+      <span className="font-semibold">
+        {product.specifications.colour}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Condition</span>
+      <span className="font-semibold">
+        {product.specifications.condition}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">SKU</span>
+      <span className="font-semibold">
+        {product.sku}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Warranty</span>
+      <span className="font-semibold">
+        {product.warranty}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3">
+      <span className="text-gray-500">Delivery</span>
+      <span className="font-semibold">
+        {product.delivery}
+      </span>
+    </div>
+
+    <div className="flex justify-between border-b pb-3 md:col-span-2">
+      <span className="text-gray-500">
+        Return Policy
+      </span>
+
+      <span className="font-semibold">
+        {product.returnPolicy}
+      </span>
+
+    </div>
+
+  </div>
+
+</div>
 
         </div>
 
       </div>
 
+      {/* Customer Reviews */}
+
+<div className="mt-14">
+
+  <h2 className="text-3xl font-bold mb-8">
+    Customer Reviews
+  </h2>
+
+  {productReviews.length === 0 ? (
+
+    <div className="bg-white rounded-xl shadow border p-8 text-center text-gray-500">
+      No reviews yet.
+    </div>
+
+  ) : (
+
+    <div className="space-y-6">
+
+      {productReviews.map((review) => (
+
+        <div
+          key={review.id}
+          className="bg-white rounded-xl shadow border p-6"
+        >
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <h3 className="font-bold text-lg">
+                {review.user}
+              </h3>
+
+              <p className="text-sm text-gray-500">
+                {review.date}
+              </p>
+
+            </div>
+
+            <div className="flex">
+
+              {[1,2,3,4,5].map((star)=>(
+
+                <Star
+                  key={star}
+                  size={18}
+                  fill={
+                    star <= review.rating
+                      ? "#fbbf24"
+                      : "transparent"
+                  }
+                  color="#fbbf24"
+                />
+
+              ))}
+
+            </div>
+
+          </div>
+
+          <p className="text-gray-600 leading-7 mt-5">
+
+            {review.comment}
+
+          </p>
+
+        </div>
+
+      ))}
+
+    </div>
+
+  )}
+
+</div>
+
+{/* Similar Products */}
+
+<div className="mt-16">
+
+  <h2 className="text-3xl font-bold mb-8">
+    Similar Products
+  </h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+
+    {similarProducts.map((item) => (
+
+      <Link
+        key={item.id}
+        to={`/product/${item.id}`}
+        className="bg-white rounded-xl shadow hover:shadow-xl transition overflow-hidden group"
+      >
+
+        <div className="relative overflow-hidden">
+
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-full aspect-square object-cover group-hover:scale-105 transition duration-300"
+          />
+
+          <span className="absolute top-3 left-3 bg-red-600 text-white text-xs px-2 py-1 rounded">
+            -{item.discount}%
+          </span>
+
+        </div>
+
+        <div className="p-4">
+
+          <h3 className="font-semibold line-clamp-2 min-h-[48px]">
+            {item.name}
+          </h3>
+
+          <p className="text-green-700 font-bold text-xl mt-3">
+            ₦{item.price.toLocaleString()}
+          </p>
+
+          <p className="text-gray-400 line-through text-sm">
+            ₦{item.oldPrice.toLocaleString()}
+          </p>
+
+          <div className="flex items-center justify-between mt-4">
+
+            <div className="flex items-center gap-1">
+
+              <Star
+                fill="#fbbf24"
+                color="#fbbf24"
+                size={16}
+              />
+
+              <span className="text-sm">
+                {item.rating}
+              </span>
+
+            </div>
+
+            <Eye
+              className="text-gray-500"
+              size={18}
+            />
+
+          </div>
+
+        </div>
+
+      </Link>
+
+    ))}
+
+  </div>
+
+</div>
+
     </section>
+
   );
 }
 

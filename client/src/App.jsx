@@ -1,27 +1,108 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 
 import Home from "./pages/Home/Home";
 import ProductDetails from "./pages/Product/ProductDetails";
+import Cart from "./pages/Cart/Cart";
+import Checkout from "./pages/Checkout/Checkout";
+
+import Register from "./pages/Auth/Register";
+import Login from "./pages/Auth/Login";
+import ForgotPassword from "./pages/Auth/ForgotPassword";
+import ResetPassword from "./pages/Auth/ResetPassword";
+import Dashboard from "./pages/Buyer/Dashboard";
+import Profile from "./pages/Buyer/Profile";
+import Orders from "./pages/Buyer/Orders";
+import Wishlist from "./pages/Buyer/Wishlist";
+import SellerDashboard from "./pages/Seller/Dashboard";
+import Products from "./pages/Seller/Products";
+import AddProduct from "./pages/Seller/AddProduct";
+import EditProduct from "./pages/Seller/EditProduct";
 
 function App() {
   return (
-    <BrowserRouter>
+    <Routes>
 
-      <Routes>
+      <Route
+        path="/"
+        element={<Home />}
+      />
 
-        <Route
-          path="/"
-          element={<Home />}
-        />
+      <Route
+        path="/product/:id"
+        element={<ProductDetails />}
+      />
 
-        <Route
-          path="/product/:id"
-          element={<ProductDetails />}
-        />
+      <Route
+        path="/cart"
+        element={<Cart />}
+      />
 
-      </Routes>
+      <Route
+        path="/checkout"
+        element={<Checkout />}
+      />
 
-    </BrowserRouter>
+      <Route
+        path="/register"
+        element={<Register />}
+      />
+
+      <Route
+        path="/login"
+        element={<Login />}
+      />
+
+      <Route
+        path="/forgot-password"
+        element={<ForgotPassword />}
+      />
+
+      <Route
+        path="/reset-password"
+        element={<ResetPassword />}
+      />
+
+      <Route
+  path="/dashboard"
+  element={<Dashboard />}
+/>
+
+<Route
+  path="/profile"
+  element={<Profile />}
+/>
+
+<Route
+  path="/orders"
+  element={<Orders />}
+/>
+
+<Route
+  path="/wishlist"
+  element={<Wishlist />}
+/>
+
+<Route
+  path="/seller/dashboard"
+  element={<SellerDashboard />}
+/>
+
+<Route
+  path="/seller/products"
+  element={<Products />}
+ />
+
+ <Route
+  path="/seller/add-product"
+  element={<AddProduct />}
+/>
+
+<Route
+  path="/seller/edit-product/:id"
+  element={<EditProduct />}
+/>
+
+    </Routes>
   );
 }
 

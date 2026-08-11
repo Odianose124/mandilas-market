@@ -1,115 +1,206 @@
 import {
-  Heart,
-  ShoppingCart,
-  Star,
+    Heart,
+    ShoppingCart,
+    Star,
 } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 
+import { useCart } from "../../context/CartContext";
+
 function ProductCard({ product }) {
-  const navigate = useNavigate();
-  return (
-    <div
-  onClick={() => navigate(`/product/${product.id}`)}
-  className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
->
+    const navigate = useNavigate();
 
-      {/* Product Image */}
+    const { addToCart } = useCart();
 
-      <div className="relative overflow-hidden">
+    const imageUrl =
+        product.imageUrl ||
+        "https://via.placeholder.com/600x600?text=No+Image";
 
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full aspect-square object-cover group-hover:scale-110 transition duration-500"
-        />
+    const price = Number(product.price || 0);
 
-        <button className="absolute top-3 right-3 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow hover:bg-red-50">
+    const discountPrice =
+        Number(product.discountPrice || 0);
 
-          <Heart size={20} />
+    const hasDiscount =
+        discountPrice > 0 &&
+        discountPrice < price;
 
-        </button>
+    const displayPrice = hasDiscount
+        ? discountPrice
+        : price;
 
-        <span className="absolute left-3 top-3 bg-red-600 text-white px-2 py-1 rounded text-xs font-semibold">
+    const stock = Number(product.stock || 0);
 
-          -{product.discount}%
+    const handleAddToCart = (event) => {
+        event.stopPropagation();
 
-        </span>
+        if (stock <= 0) {
+            return;
+        }
 
-      </div>
+        addToCart(product, 1);
+    };
 
-      {/* Product Details */}
+    const handleViewProduct = () => {
+        navigate(`/product/${product.id}`);
+    };
 
-      <div className="p-4">
+    return (
+        <div
+            onClick={handleViewProduct}
+            className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer"
+        >
 
-        <h3 className="font-semibold line-clamp-2 h-12">
-          {product.name}
-        </h3>
+            {/* Product Image */}
 
-        <div className="flex items-center gap-1 mt-2">
+            <div className="relative overflow-hidden">
 
-          <Star
-            size={15}
-            fill="#FBBF24"
-            color="#FBBF24"
-          />
+                <img
+                    src={imageUrl}
+                    alt={product.name || "Product"}
+                    className="w-full aspect-square object-cover group-hover:scale-110 transition duration-500"
+                />
 
-          <Star
-            size={15}
-            fill="#FBBF24"
-            color="#FBBF24"
-          />
+                {/* Wishlist */}
 
-          <Star
-            size={15}
-            fill="#FBBF24"
-            color="#FBBF24"
-          />
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                    }}
+                    className="absolute top-3 right-3 bg-white w-10 h-10 rounded-full flex items-center justify-center shadow hover:bg-red-50 transition"
+                    title="Add to Wishlist"
+                >
+                    <Heart size={20} />
+                </button>
 
-          <Star
-            size={15}
-            fill="#FBBF24"
-            color="#FBBF24"
-          />
+                {/* Category */}
 
-          <Star
-            size={15}
-            color="#D1D5DB"
-          />
+                {product.category && (
+                    <span className="absolute left-3 top-3 bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold">
+                        {product.category}
+                    </span>
+                )}
 
-          <span className="text-xs text-gray-500 ml-2">
-            (24)
-          </span>
+                {/* Discount Badge */}
+
+                {hasDiscount && (
+                    <span className="absolute left-3 bottom-3 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">
+                        SALE
+                    </span>
+                )}
+
+            </div>
+
+            {/* Product Details */}
+
+            <div className="p-4">
+
+                <h3 className="font-semibold line-clamp-2 h-12">
+                    {product.name}
+                </h3>
+
+                {/* Rating */}
+
+                <div className="flex items-center gap-1 mt-2">
+
+                    <Star
+                        size={15}
+                        fill="#FBBF24"
+                        color="#FBBF24"
+                    />
+
+                    <Star
+                        size={15}
+                        fill="#FBBF24"
+                        color="#FBBF24"
+                    />
+
+                    <Star
+                        size={15}
+                        fill="#FBBF24"
+                        color="#FBBF24"
+                    />
+
+                    <Star
+                        size={15}
+                        fill="#FBBF24"
+                        color="#FBBF24"
+                    />
+
+                    <Star
+                        size={15}
+                        color="#D1D5DB"
+                    />
+
+                    <span className="text-xs text-gray-500 ml-2">
+                        (24)
+                    </span>
+
+                </div>
+
+                {/* Price */}
+
+                <div className="mt-3">
+
+                    <div className="flex items-center gap-2 flex-wrap">
+
+                        <h2 className="text-green-700 font-bold text-xl">
+                            ₦{displayPrice.toLocaleString()}
+                        </h2>
+
+                        {hasDiscount && (
+                            <span className="text-gray-400 line-through text-sm">
+                                ₦{price.toLocaleString()}
+                            </span>
+                        )}
+
+                    </div>
+
+                    {hasDiscount && (
+                        <p className="text-red-600 text-xs font-semibold mt-1">
+                            Save ₦{(price - discountPrice).toLocaleString()}
+                        </p>
+                    )}
+
+                </div>
+
+                {/* Stock */}
+
+                <p className="text-sm text-gray-500 mt-1">
+
+                    {stock > 0
+                        ? `${stock} available`
+                        : "Out of stock"}
+
+                </p>
+
+                {/* Add To Cart */}
+
+                <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={stock <= 0}
+                    className={`mt-4 w-full h-11 rounded-lg text-white font-semibold flex items-center justify-center gap-2 transition ${
+                        stock > 0
+                            ? "bg-green-600 hover:bg-green-700"
+                            : "bg-gray-400 cursor-not-allowed"
+                    }`}
+                >
+
+                    <ShoppingCart size={18} />
+
+                    {stock > 0
+                        ? "Add to Cart"
+                        : "Out of Stock"}
+
+                </button>
+
+            </div>
 
         </div>
-
-        <div className="mt-3">
-
-          <h2 className="text-green-700 font-bold text-xl">
-
-            ₦{product.price.toLocaleString()}
-
-          </h2>
-
-          <p className="line-through text-gray-400 text-sm">
-
-            ₦{product.oldPrice.toLocaleString()}
-
-          </p>
-
-        </div>
-
-        <button className="mt-4 w-full h-11 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center justify-center gap-2 transition">
-
-          <ShoppingCart size={18} />
-
-          Add to Cart
-
-        </button>
-
-      </div>
-
-    </div>
-  );
+    );
 }
 
 export default ProductCard;
