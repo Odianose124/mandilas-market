@@ -20,7 +20,9 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> register(
+            @RequestBody Map<String, String> request
+    ) {
 
         try {
 
@@ -30,12 +32,13 @@ public class AuthController {
             String phone = request.get("phone");
             String password = request.get("password");
             String role = request.get("role");
+            String storeName = request.get("storeName");
 
             if (firstName == null ||
-                lastName == null ||
-                email == null ||
-                phone == null ||
-                password == null) {
+                    lastName == null ||
+                    email == null ||
+                    phone == null ||
+                    password == null) {
 
                 return ResponseEntity
                         .badRequest()
@@ -51,20 +54,15 @@ public class AuthController {
                     email,
                     phone,
                     password,
-                    role
+                    role,
+                    storeName
             );
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
-                    .body(Map.of(
-                            "message", "Account created successfully.",
-                            "id", user.getId(),
-                            "firstName", user.getFirstName(),
-                            "lastName", user.getLastName(),
-                            "email", user.getEmail(),
-                            "phone", user.getPhone(),
-                            "role", user.getRole().name(),
-                            "sellerVerified", user.isSellerVerified()
+                    .body(userResponse(
+                            user,
+                            "Account created successfully."
                     ));
 
         } catch (RuntimeException e) {
@@ -72,8 +70,103 @@ public class AuthController {
             return ResponseEntity
                     .badRequest()
                     .body(Map.of(
-                            "message", e.getMessage()
+                            "message",
+                            e.getMessage()
                     ));
         }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(
+            @RequestBody Map<String, String> request
+    ) {
+
+        try {
+
+            String email = request.get("email");
+            String password = request.get("password");
+
+            if (email == null || password == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(Map.of(
+                                "message",
+                                "Email and password are required."
+                        ));
+            }
+
+            AuthService.LoginResult result =
+                    authService.login(
+                            email,
+                            password
+                    );
+
+            User user = result.user();
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message",
+                            "Login successful.",
+
+                            "token",
+                            result.token(),
+
+                            "user",
+                            userResponseData(user)
+                    )
+            );
+
+        } catch (RuntimeException e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "message",
+                            e.getMessage()
+                    ));
+        }
+    }
+
+    private Map<String, Object> userResponse(
+            User user,
+            String message
+    ) {
+
+        return Map.of(
+                "message",
+                message,
+
+                "user",
+                userResponseData(user)
+        );
+    }
+
+    private Map<String, Object> userResponseData(
+            User user
+    ) {
+
+        Map<String, Object> response =
+                new java.util.HashMap<>();
+
+        response.put("id", user.getId());
+        response.put("firstName", user.getFirstName());
+        response.put("lastName", user.getLastName());
+        response.put("email", user.getEmail());
+        response.put("phone", user.getPhone());
+        response.put("role", user.getRole().name());
+        response.put(
+                "sellerVerified",
+                user.isSellerVerified()
+        );
+
+        if (user.getStoreName() != null) {
+            response.put(
+                    "storeName",
+                    user.getStoreName()
+            );
+        }
+
+        return response;
     }
 }
