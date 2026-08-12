@@ -44,7 +44,7 @@ function Login() {
 
     try {
       /*
-       * Login against the REAL Railway backend.
+       * Login against the real Railway backend.
        */
       const result = await loginUser(
         formData.email,
@@ -80,21 +80,16 @@ function Login() {
       );
 
       /*
-       * Convert the backend role to lowercase
-       * so the frontend can use seller/buyer.
+       * Login is successful.
+       *
+       * BOTH buyers and sellers now go
+       * to the main Mandilas Market home page.
+       *
+       * Their role is still saved inside AuthContext,
+       * so seller/buyer-specific pages can still
+       * use the user's role.
        */
-      const role = backendUser.role
-        ? backendUser.role.toLowerCase()
-        : "buyer";
-
-      /*
-       * Send the user to the appropriate dashboard.
-       */
-      if (role === "seller") {
-        navigate("/seller/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate("/");
 
     } catch (error) {
       console.error(
@@ -112,10 +107,33 @@ function Login() {
     }
   };
 
+  /*
+   * Go back to the previous page.
+   */
+  const handleBack = () => {
+    navigate(-1);
+  };
+
   return (
     <section className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-12">
 
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
+
+        {/* Back Button */}
+
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex items-center gap-2 text-gray-600 hover:text-green-700 font-medium mb-8 transition"
+        >
+          <span className="text-xl">
+            ←
+          </span>
+
+          <span>
+            Back
+          </span>
+        </button>
 
         {/* Header */}
 
@@ -209,9 +227,11 @@ function Login() {
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
+
             {loading
               ? "Logging In..."
               : "Login"}
+
           </button>
 
         </form>

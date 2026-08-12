@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -19,6 +20,12 @@ public class AuthController {
         this.authService = authService;
     }
 
+
+    /*
+     * =========================
+     * REGISTER
+     * =========================
+     */
     @PostMapping("/register")
     public ResponseEntity<?> register(
             @RequestBody Map<String, String> request
@@ -34,6 +41,10 @@ public class AuthController {
             String role = request.get("role");
             String storeName = request.get("storeName");
 
+
+            /*
+             * Basic required-field validation.
+             */
             if (firstName == null ||
                     lastName == null ||
                     email == null ||
@@ -48,34 +59,67 @@ public class AuthController {
                         ));
             }
 
-            User user = authService.register(
-                    firstName,
-                    lastName,
-                    email,
-                    phone,
-                    password,
-                    role,
-                    storeName
-            );
 
+            /*
+             * Register user and receive:
+             *
+             * - saved user
+             * - JWT token
+             */
+            AuthService.RegistrationResult result =
+                    authService.register(
+                            firstName,
+                            lastName,
+                            email,
+                            phone,
+                            password,
+                            role,
+                            storeName
+                    );
+
+
+            User user = result.user();
+
+
+            /*
+             * Return the same authentication
+             * structure used by login.
+             */
             return ResponseEntity
                     .status(HttpStatus.CREATED)
-                    .body(userResponse(
-                            user,
-                            "Account created successfully."
-                    ));
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Account created successfully.",
+
+                                    "token",
+                                    result.token(),
+
+                                    "user",
+                                    userResponseData(user)
+                            )
+                    );
+
 
         } catch (RuntimeException e) {
 
             return ResponseEntity
                     .badRequest()
-                    .body(Map.of(
-                            "message",
-                            e.getMessage()
-                    ));
+                    .body(
+                            Map.of(
+                                    "message",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
+
+    /*
+     * =========================
+     * LOGIN
+     * =========================
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(
             @RequestBody Map<String, String> request
@@ -86,15 +130,19 @@ public class AuthController {
             String email = request.get("email");
             String password = request.get("password");
 
+
             if (email == null || password == null) {
 
                 return ResponseEntity
                         .badRequest()
-                        .body(Map.of(
-                                "message",
-                                "Email and password are required."
-                        ));
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "Email and password are required."
+                                )
+                        );
             }
+
 
             AuthService.LoginResult result =
                     authService.login(
@@ -102,7 +150,9 @@ public class AuthController {
                             password
                     );
 
+
             User user = result.user();
+
 
             return ResponseEntity.ok(
                     Map.of(
@@ -117,55 +167,86 @@ public class AuthController {
                     )
             );
 
+
         } catch (RuntimeException e) {
 
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of(
-                            "message",
-                            e.getMessage()
-                    ));
+                    .body(
+                            Map.of(
+                                    "message",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
-    private Map<String, Object> userResponse(
-            User user,
-            String message
-    ) {
 
-        return Map.of(
-                "message",
-                message,
-
-                "user",
-                userResponseData(user)
-        );
-    }
-
+    /*
+     * =========================
+     * USER RESPONSE
+     * =========================
+     *
+     * We don't send the password back
+     * to the frontend.
+     */
     private Map<String, Object> userResponseData(
             User user
     ) {
 
         Map<String, Object> response =
-                new java.util.HashMap<>();
+                new HashMap<>();
 
-        response.put("id", user.getId());
-        response.put("firstName", user.getFirstName());
-        response.put("lastName", user.getLastName());
-        response.put("email", user.getEmail());
-        response.put("phone", user.getPhone());
-        response.put("role", user.getRole().name());
+
+        response.put(
+                "id",
+                user.getId()
+        );
+
+        response.put(
+                "firstName",
+                user.getFirstName()
+        );
+
+        response.put(
+                "lastName",
+                user.getLastName()
+        );
+
+        response.put(
+                "email",
+                user.getEmail()
+        );
+
+        response.put(
+                "phone",
+                user.getPhone()
+        );
+
+        response.put(
+                "role",
+                user.getRole().name()
+        );
+
         response.put(
                 "sellerVerified",
                 user.isSellerVerified()
         );
 
-        if (user.getStoreName() != null) {
-            response.put(
-                    "storeName",
-                    user.getStoreName()
-            );
-        }
+
+        /*
+         * Always provide storeName.
+         *
+         * This makes the frontend response
+         * consistent for buyers and sellers.
+         */
+        response.put(
+                "storeName",
+                user.getStoreName() == null
+                        ? ""
+                        : user.getStoreName()
+        );
+
 
         return response;
     }

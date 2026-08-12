@@ -23,7 +23,14 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
-    public User register(
+    /*
+     * REGISTER
+     *
+     * Creates a new BUYER or SELLER account.
+     * After the account is created, a JWT is generated
+     * so the user is authenticated immediately.
+     */
+    public RegistrationResult register(
             String firstName,
             String lastName,
             String email,
@@ -66,17 +73,23 @@ public class AuthService {
         User.Role userRole;
 
         try {
+
             userRole = User.Role.valueOf(
                     role == null
                             ? "BUYER"
                             : role.trim().toUpperCase()
             );
+
         } catch (Exception e) {
+
             throw new RuntimeException(
                     "Invalid account type. Choose BUYER or SELLER."
             );
         }
 
+        /*
+         * Sellers must provide a store name.
+         */
         if (userRole == User.Role.SELLER &&
                 (storeName == null ||
                         storeName.trim().isEmpty())) {
@@ -93,21 +106,63 @@ public class AuthService {
         user.setEmail(email);
         user.setPhone(phone.trim());
 
-        // NEVER store the plain password.
+        /*
+         * NEVER save the plain password.
+         */
         user.setPassword(
                 passwordEncoder.encode(password)
         );
 
         user.setRole(userRole);
 
+        /*
+         * Seller-specific information.
+         */
         if (userRole == User.Role.SELLER) {
-            user.setStoreName(storeName.trim());
+
+            user.setStoreName(
+                    storeName.trim()
+            );
+
+            /*
+             * New sellers are not verified automatically.
+             */
+            user.setSellerVerified(false);
+
+        } else {
+
+            /*
+             * Buyers don't need a store.
+             */
+            user.setStoreName(null);
             user.setSellerVerified(false);
         }
 
-        return userRepository.save(user);
+        /*
+         * Save the user first so that the database
+         * generates the real user ID.
+         */
+        User savedUser = userRepository.save(user);
+
+        /*
+         * Generate JWT using the REAL database ID.
+         */
+        String token = jwtService.generateToken(
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getRole().name()
+        );
+
+        return new RegistrationResult(
+                savedUser,
+                token
+        );
     }
 
+
+    /*
+     * LOGIN
+     */
     public LoginResult login(
             String email,
             String password
@@ -135,24 +190,49 @@ public class AuthService {
                         )
                 );
 
+        /*
+         * Compare the entered password with
+         * the encrypted database password.
+         */
         if (!passwordEncoder.matches(
                 password,
                 user.getPassword()
         )) {
+
             throw new RuntimeException(
                     "Invalid email or password."
             );
         }
 
+        /*
+         * Generate JWT for the existing user.
+         */
         String token = jwtService.generateToken(
                 user.getId(),
                 user.getEmail(),
                 user.getRole().name()
         );
 
-        return new LoginResult(user, token);
+        return new LoginResult(
+                user,
+                token
+        );
     }
 
+
+    /*
+     * Registration result.
+     */
+    public record RegistrationResult(
+            User user,
+            String token
+    ) {
+    }
+
+
+    /*
+     * Login result.
+     */
     public record LoginResult(
             User user,
             String token

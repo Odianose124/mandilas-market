@@ -9,14 +9,16 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-
   const [token, setToken] = useState(null);
-
   const [loading, setLoading] = useState(true);
 
   /*
-   * Restore the logged-in user and JWT
-   * when the application starts.
+   * ==========================================
+   * RESTORE LOGIN SESSION
+   * ==========================================
+   *
+   * When the application starts, restore the
+   * saved user and JWT from localStorage.
    */
   useEffect(() => {
     try {
@@ -27,7 +29,20 @@ export function AuthProvider({ children }) {
         localStorage.getItem("mandilas-token");
 
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+
+        /*
+         * Make sure the role is always lowercase
+         * inside the frontend.
+         */
+        const restoredUser = {
+          ...parsedUser,
+          role: parsedUser.role
+            ? parsedUser.role.toLowerCase()
+            : "buyer",
+        };
+
+        setUser(restoredUser);
       }
 
       if (savedToken) {
@@ -50,8 +65,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   /*
-   * Login and save the real backend user
-   * together with the real JWT token.
+   * ==========================================
+   * LOGIN
+   * ==========================================
+   *
+   * Saves the authenticated backend user and
+   * JWT token.
    */
   const login = (userData, jwtToken) => {
     if (!userData) {
@@ -60,12 +79,13 @@ export function AuthProvider({ children }) {
 
     const updatedUser = {
       /*
-       * IMPORTANT:
-       * Use the real database ID.
-       * Do NOT use Date.now().
+       * Real database ID.
        */
       id: userData.id || null,
 
+      /*
+       * Basic user information.
+       */
       firstName:
         userData.firstName || "",
 
@@ -78,6 +98,9 @@ export function AuthProvider({ children }) {
       phone:
         userData.phone || "",
 
+      /*
+       * Optional profile information.
+       */
       avatar:
         userData.avatar || "",
 
@@ -89,27 +112,35 @@ export function AuthProvider({ children }) {
         new Date().toISOString(),
 
       /*
-       * Convert backend SELLER/BUYER
-       * to frontend seller/buyer.
+       * IMPORTANT:
+       *
+       * Backend may return:
+       * BUYER
+       * SELLER
+       *
+       * Frontend will always use:
+       * buyer
+       * seller
        */
       role: userData.role
         ? userData.role.toLowerCase()
         : "buyer",
 
       /*
-       * Preserve the real seller verification
-       * status returned by the backend.
+       * Seller verification status.
        */
       sellerVerified:
         userData.sellerVerified || false,
 
       /*
-       * IMPORTANT:
-       * Preserve the seller's store name.
+       * Seller store name.
        */
       storeName:
         userData.storeName || "",
 
+      /*
+       * Wallet balance.
+       */
       walletBalance:
         userData.walletBalance || 0,
     };
@@ -123,7 +154,7 @@ export function AuthProvider({ children }) {
     );
 
     /*
-     * Save the REAL JWT returned by Railway.
+     * Save JWT if provided.
      */
     if (jwtToken) {
       localStorage.setItem(
@@ -132,6 +163,9 @@ export function AuthProvider({ children }) {
       );
     }
 
+    /*
+     * Update React state.
+     */
     setUser(updatedUser);
 
     if (jwtToken) {
@@ -140,7 +174,11 @@ export function AuthProvider({ children }) {
   };
 
   /*
-   * Update the currently logged-in user.
+   * ==========================================
+   * UPDATE USER
+   * ==========================================
+   *
+   * Used when profile information changes.
    */
   const updateUser = (updatedData) => {
     if (!user) {
@@ -150,6 +188,13 @@ export function AuthProvider({ children }) {
     const updatedUser = {
       ...user,
       ...updatedData,
+
+      /*
+       * Always keep role lowercase.
+       */
+      role: updatedData.role
+        ? updatedData.role.toLowerCase()
+        : user.role,
     };
 
     localStorage.setItem(
@@ -161,10 +206,11 @@ export function AuthProvider({ children }) {
   };
 
   /*
-   * Logout.
+   * ==========================================
+   * LOGOUT
+   * ==========================================
    *
-   * Remove BOTH the user information
-   * and JWT token.
+   * Remove the user and JWT completely.
    */
   const logout = () => {
     localStorage.removeItem(
@@ -176,10 +222,14 @@ export function AuthProvider({ children }) {
     );
 
     setUser(null);
-
     setToken(null);
   };
 
+  /*
+   * ==========================================
+   * AUTH CONTEXT
+   * ==========================================
+   */
   return (
     <AuthContext.Provider
       value={{
@@ -196,6 +246,11 @@ export function AuthProvider({ children }) {
   );
 }
 
+/*
+ * ==========================================
+ * USE AUTH HOOK
+ * ==========================================
+ */
 export function useAuth() {
   return useContext(AuthContext);
 }

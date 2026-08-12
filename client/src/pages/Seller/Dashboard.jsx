@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -6,169 +7,715 @@ import {
   Wallet,
   TrendingUp,
   Users,
+  RefreshCw,
+  AlertCircle,
+  Plus,
 } from "lucide-react";
 
+import { useAuth } from "../../context/AuthContext";
+import { useProducts } from "../../context/ProductContext";
+import { getOrdersBySellerEmail } from "../../services/orderService";
+
 function Dashboard() {
+  const { user } = useAuth();
 
-  const stats = [
+  const { getSellerProducts } = useProducts();
 
-    {
-  title: "Products",
-  value: 24,
-  icon: Package,
-  color: "bg-blue-500",
-  link: "/seller/products",
-},
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
 
-    {
-      title: "Orders",
-      value: 18,
-      icon: ShoppingCart,
-      color: "bg-green-500",
-    },
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    {
-      title: "Revenue",
-      value: "₦850,000",
-      icon: Wallet,
-      color: "bg-yellow-500",
-    },
+  /*
+   * ==========================================
+   * LOAD LIVE SELLER DATA
+   * ==========================================
+   *
+   * Products:
+   * /api/products/seller/{sellerEmail}
+   *
+   * Orders:
+   * /api/orders/seller/{sellerEmail}
+   */
+  const loadDashboardData = async () => {
+    if (!user?.email) {
+      setProducts([]);
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
-    {
-      title: "Customers",
-      value: 41,
-      icon: Users,
-      color: "bg-purple-500",
-    },
+    try {
+      setLoading(true);
+      setError("");
 
-  ];
+      const [sellerProducts, sellerOrders] =
+        await Promise.all([
+          getSellerProducts(user.email),
+          getOrdersBySellerEmail(user.email),
+        ]);
+
+      setProducts(
+        Array.isArray(sellerProducts)
+          ? sellerProducts
+          : []
+      );
+
+      setOrders(
+        Array.isArray(sellerOrders)
+          ? sellerOrders
+          : []
+      );
+    } catch (err) {
+      console.error(
+        "Failed to load seller dashboard:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Failed to load your dashboard data."
+      );
+
+      setProducts([]);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /*
+   * Load dashboard when seller changes/login
+   */
+  useEffect(() => {
+    loadDashboardData();
+  }, [user?.email]);
+
+  /*
+   * ==========================================
+   * LIVE PRODUCT COUNT
+   * ==========================================
+   */
+  const productCount = products.length;
+
+  /*
+   * ==========================================
+   * LIVE ORDER COUNT
+   * ==========================================
+   */
+  const orderCount = orders.length;
+
+  /*
+   * ==========================================
+   * GET SELLER ORDER ITEMS
+   * ==========================================
+   *
+   * An order can contain products from
+   * multiple sellers.
+   *
+   * We only calculate the current seller's
+   * products from each order.
+   */
+  const sellerOrderItems = useMemo(() => {
+    if (!user?.email) {
+      return [];
+    }
+
+    const sellerEmail =
+      user.email.trim().toLowerCase();
+
+    const items = [];
+
+    orders.forEach((order) => {
+      if (!Array.isArray(order?.items)) {
+        return;
+      }
+
+      order.items.forEach((item) => {
+        if (!item) {
+          return;
+        }
+
+        const itemSellerEmail =
+          item.sellerEmail
+            ?.trim()
+            .toLowerCase();
+
+        if (
+          itemSellerEmail === sellerEmail
+        ) {
+          items.push({
+            ...item,
+            order,
+          });
+        }
+      });
+    });
+
+    return items;
+  }, [orders, user?.email]);
+
+  /*
+   * ==========================================
+   * LIVE REVENUE
+   * ==========================================
+   *
+   * Revenue is calculated from the seller's
+   * actual order items.
+   *
+   * We exclude cancelled orders.
+   */
+  const revenue = useMemo(() => {
+    return sellerOrderItems
+      .filter((item) => {
+        const status =
+          item.order?.orderStatus
+            ?.toLowerCase();
+
+        return status !== "cancelled";
+      })
+      .reduce((total, item) => {
+        const itemTotal =
+          Number(item.total) ||
+          Number(item.price || 0) *
+            Number(item.quantity || 0);
+
+        return total + itemTotal;
+      }, 0);
+  }, [sellerOrderItems]);
+
+  /*
+   * ==========================================
+   * LIVE UNIQUE CUSTOMERS
+   * ==========================================
+   */
+  const customerCount = useMemo(() => {
+    const customers = new Set();
+
+    orders.forEach((order) => {
+      if (order?.email) {
+        customers.add(
+          order.email.trim().toLowerCase()
+        );
+      }
+    });
+
+    return customers.size;
+  }, [orders]);
+
+  /*
+   * ==========================================
+   * RECENT ORDERS
+   * ==========================================
+   */
+  const recentOrders = useMemo(() => {
+    return [...orders]
+      .sort((a, b) => {
+        const dateA = new Date(
+          a?.createdAt || 0
+        ).getTime();
+
+        const dateB = new Date(
+          b?.createdAt || 0
+        ).getTime();
+
+        return dateB - dateA;
+      })
+      .slice(0, 5);
+  }, [orders]);
+
+  /*
+   * ==========================================
+   * SALES TOTALS
+   * ==========================================
+   *
+   * Used for the sales overview.
+   */
+  const salesOverview = useMemo(() => {
+    const totals = {};
+
+    sellerOrderItems.forEach((item) => {
+      const order = item.order;
+
+      const status =
+        order?.orderStatus
+          ?.toLowerCase();
+
+      if (status === "cancelled") {
+        return;
+      }
+
+      const date = order?.createdAt
+        ? new Date(order.createdAt)
+        : null;
+
+      if (!date || Number.isNaN(date.getTime())) {
+        return;
+      }
+
+      const monthKey =
+        date.toLocaleDateString("en-US", {
+          month: "short",
+          year: "numeric",
+        });
+
+      const itemTotal =
+        Number(item.total) ||
+        Number(item.price || 0) *
+          Number(item.quantity || 0);
+
+      totals[monthKey] =
+        (totals[monthKey] || 0) +
+        itemTotal;
+    });
+
+    return Object.entries(totals)
+      .map(([month, amount]) => ({
+        month,
+        amount,
+      }))
+      .sort(
+        (a, b) =>
+          new Date(a.month) -
+          new Date(b.month)
+      )
+      .slice(-6);
+  }, [sellerOrderItems]);
+
+  /*
+   * ==========================================
+   * CURRENCY FORMAT
+   * ==========================================
+   */
+  const formatCurrency = (amount) => {
+    return `₦${Number(
+      amount || 0
+    ).toLocaleString("en-NG")}`;
+  };
+
+  /*
+   * ==========================================
+   * ORDER STATUS STYLE
+   * ==========================================
+   */
+  const getStatusClass = (status) => {
+    const normalized =
+      status?.toLowerCase();
+
+    if (
+      normalized === "delivered" ||
+      normalized === "completed"
+    ) {
+      return "bg-green-100 text-green-700";
+    }
+
+    if (
+      normalized === "cancelled" ||
+      normalized === "failed"
+    ) {
+      return "bg-red-100 text-red-700";
+    }
+
+    if (
+      normalized === "shipped" ||
+      normalized === "processing"
+    ) {
+      return "bg-blue-100 text-blue-700";
+    }
+
+    return "bg-yellow-100 text-yellow-700";
+  };
+
+  /*
+   * ==========================================
+   * ORDER SELLER AMOUNT
+   * ==========================================
+   */
+  const getSellerOrderAmount = (order) => {
+    if (
+      !order ||
+      !Array.isArray(order.items)
+    ) {
+      return 0;
+    }
+
+    const sellerEmail =
+      user?.email
+        ?.trim()
+        .toLowerCase();
+
+    return order.items
+      .filter(
+        (item) =>
+          item?.sellerEmail
+            ?.trim()
+            .toLowerCase() ===
+          sellerEmail
+      )
+      .reduce((total, item) => {
+        const itemTotal =
+          Number(item.total) ||
+          Number(item.price || 0) *
+            Number(item.quantity || 0);
+
+        return total + itemTotal;
+      }, 0);
+  };
+
+  /*
+   * ==========================================
+   * LOADING STATE
+   * ==========================================
+   */
+  if (loading) {
+    return (
+      <section className="min-h-screen bg-gray-100 p-4 md:p-8">
+
+        <div className="flex items-center justify-center min-h-[500px]">
+
+          <div className="text-center">
+
+            <RefreshCw
+              size={40}
+              className="mx-auto text-green-600 animate-spin"
+            />
+
+            <p className="mt-4 text-gray-500">
+              Loading your seller dashboard...
+            </p>
+
+          </div>
+
+        </div>
+
+      </section>
+    );
+  }
 
   return (
+    <section className="min-h-screen bg-gray-100 p-4 md:p-8">
 
-    <section className="min-h-screen bg-gray-100 p-8">
+      {/* ==========================================
+          HEADER
+      ========================================== */}
 
-      <h1 className="text-4xl font-bold mb-10">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 mb-10">
 
-        Seller Dashboard
+        <div>
 
-      </h1>
+          <h1 className="text-3xl md:text-4xl font-bold">
+            Seller Dashboard
+          </h1>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <p className="text-gray-500 mt-2">
+            Welcome back
+            {user?.firstName
+              ? `, ${user.firstName}`
+              : ""}
+            .
+          </p>
 
-        {stats.map((item) => {
+        </div>
 
-          const Icon = item.icon;
+        <button
+          type="button"
+          onClick={loadDashboardData}
+          disabled={loading}
+          className="bg-white border border-gray-300 hover:bg-gray-50 px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold transition disabled:opacity-50"
+        >
 
-          return (
+          <RefreshCw
+            size={18}
+            className={
+              loading
+                ? "animate-spin"
+                : ""
+            }
+          />
 
-            <Link
-  to={item.link || "#"}
-  key={item.title}
-  className="bg-white rounded-2xl shadow p-6 block hover:shadow-xl transition"
->
+          Refresh Dashboard
 
-              <div
-                className={`w-14 h-14 rounded-xl ${item.color} flex items-center justify-center text-white`}
-              >
-                <Icon size={28} />
-              </div>
-
-              <h2 className="text-gray-500 mt-5">
-                {item.title}
-              </h2>
-
-              <h3 className="text-3xl font-bold mt-2">
-                {item.value}
-              </h3>
-
-            </Link>
-
-          );
-
-        })}
+        </button>
 
       </div>
 
-            {/* Quick Actions */}
+      {/* ==========================================
+          ERROR
+      ========================================== */}
+
+      {error && (
+        <div className="mb-8 bg-red-50 border border-red-200 text-red-700 rounded-xl p-5 flex gap-3">
+
+          <AlertCircle
+            size={22}
+            className="flex-shrink-0"
+          />
+
+          <div>
+
+            <p className="font-semibold">
+              Unable to load dashboard data
+            </p>
+
+            <p className="text-sm mt-1">
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={loadDashboardData}
+              className="mt-3 underline text-sm font-semibold"
+            >
+              Try Again
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ==========================================
+          LIVE STATS
+      ========================================== */}
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        {/* Products */}
+
+        <Link
+          to="/seller/products"
+          className="bg-white rounded-2xl shadow-sm p-6 block hover:shadow-xl transition"
+        >
+
+          <div className="w-14 h-14 rounded-xl bg-blue-500 flex items-center justify-center text-white">
+
+            <Package size={28} />
+
+          </div>
+
+          <h2 className="text-gray-500 mt-5">
+            Products
+          </h2>
+
+          <h3 className="text-3xl font-bold mt-2">
+            {productCount}
+          </h3>
+
+          <p className="text-sm text-gray-400 mt-2">
+            Products in your store
+          </p>
+
+        </Link>
+
+        {/* Orders */}
+
+        <Link
+          to="/seller/orders"
+          className="bg-white rounded-2xl shadow-sm p-6 block hover:shadow-xl transition"
+        >
+
+          <div className="w-14 h-14 rounded-xl bg-green-500 flex items-center justify-center text-white">
+
+            <ShoppingCart size={28} />
+
+          </div>
+
+          <h2 className="text-gray-500 mt-5">
+            Orders
+          </h2>
+
+          <h3 className="text-3xl font-bold mt-2">
+            {orderCount}
+          </h3>
+
+          <p className="text-sm text-gray-400 mt-2">
+            Orders containing your products
+          </p>
+
+        </Link>
+
+        {/* Revenue */}
+
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+
+          <div className="w-14 h-14 rounded-xl bg-yellow-500 flex items-center justify-center text-white">
+
+            <Wallet size={28} />
+
+          </div>
+
+          <h2 className="text-gray-500 mt-5">
+            Revenue
+          </h2>
+
+          <h3 className="text-3xl font-bold mt-2">
+            {formatCurrency(revenue)}
+          </h3>
+
+          <p className="text-sm text-gray-400 mt-2">
+            From your orders
+          </p>
+
+        </div>
+
+        {/* Customers */}
+
+        <div className="bg-white rounded-2xl shadow-sm p-6">
+
+          <div className="w-14 h-14 rounded-xl bg-purple-500 flex items-center justify-center text-white">
+
+            <Users size={28} />
+
+          </div>
+
+          <h2 className="text-gray-500 mt-5">
+            Customers
+          </h2>
+
+          <h3 className="text-3xl font-bold mt-2">
+            {customerCount}
+          </h3>
+
+          <p className="text-sm text-gray-400 mt-2">
+            Unique customers
+          </p>
+
+        </div>
+
+      </div>
+
+      {/* ==========================================
+          QUICK ACTIONS
+      ========================================== */}
 
       <div className="grid md:grid-cols-3 gap-6 mt-10">
 
         <Link
-  to="/seller/add-product"
-  className="bg-green-600 hover:bg-green-700 text-white rounded-xl p-6 text-left transition block"
->
+          to="/seller/add-product"
+          className="bg-green-600 hover:bg-green-700 text-white rounded-xl p-6 text-left transition block"
+        >
 
-  <h3 className="text-xl font-bold">
-    ➕ Add Product
-  </h3>
+          <div className="flex items-center gap-3">
 
-  <p className="mt-2 text-green-100">
-    Upload a new product to your store.
-  </p>
+            <Plus size={24} />
 
-</Link>
+            <h3 className="text-xl font-bold">
+              Add Product
+            </h3>
 
-        <button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-6 text-left transition">
+          </div>
 
-          <h3 className="text-xl font-bold">
+          <p className="mt-2 text-green-100">
+            Upload a new product to your store.
+          </p>
 
-            📦 View Orders
+        </Link>
 
-          </h3>
+        <Link
+          to="/seller/orders"
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-6 text-left transition block"
+        >
+
+          <div className="flex items-center gap-3">
+
+            <ShoppingCart size={24} />
+
+            <h3 className="text-xl font-bold">
+              View Orders
+            </h3>
+
+          </div>
 
           <p className="mt-2 text-blue-100">
-
-            Manage customer orders.
-
+            Manage your customer orders.
           </p>
 
-        </button>
+        </Link>
 
-        <button className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl p-6 text-left transition">
+        <Link
+          to="/seller/wallet"
+          className="bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl p-6 text-left transition block"
+        >
 
-          <h3 className="text-xl font-bold">
+          <div className="flex items-center gap-3">
 
-            💰 Wallet
+            <Wallet size={24} />
 
-          </h3>
+            <h3 className="text-xl font-bold">
+              Wallet
+            </h3>
+
+          </div>
 
           <p className="mt-2 text-yellow-100">
-
             View your earnings and withdrawals.
-
           </p>
 
-        </button>
+        </Link>
 
       </div>
 
-      {/* Recent Orders */}
+      {/* ==========================================
+          RECENT ORDERS
+      ========================================== */}
 
-      <div className="bg-white rounded-2xl shadow mt-10 p-6">
+      <div className="bg-white rounded-2xl shadow-sm mt-10 p-6">
 
-        <h2 className="text-2xl font-bold mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
 
-          Recent Orders
+          <div>
 
-        </h2>
+            <h2 className="text-2xl font-bold">
+              Recent Orders
+            </h2>
+
+            <p className="text-gray-500 text-sm mt-1">
+              Orders containing your products
+            </p>
+
+          </div>
+
+          <Link
+            to="/seller/orders"
+            className="text-green-600 font-semibold hover:underline"
+          >
+            View All Orders
+          </Link>
+
+        </div>
 
         <div className="overflow-x-auto">
 
-          <table className="w-full">
+          <table className="w-full min-w-[800px]">
 
             <thead>
 
               <tr className="border-b">
 
-                <th className="text-left py-3">Order ID</th>
+                <th className="text-left py-3">
+                  Order ID
+                </th>
 
-                <th className="text-left py-3">Customer</th>
+                <th className="text-left py-3">
+                  Customer
+                </th>
 
-                <th className="text-left py-3">Product</th>
+                <th className="text-left py-3">
+                  Products
+                </th>
 
-                <th className="text-left py-3">Amount</th>
+                <th className="text-left py-3">
+                  Amount
+                </th>
 
-                <th className="text-left py-3">Status</th>
+                <th className="text-left py-3">
+                  Status
+                </th>
+
+                <th className="text-left py-3">
+                  Date
+                </th>
 
               </tr>
 
@@ -176,49 +723,159 @@ function Dashboard() {
 
             <tbody>
 
-              <tr className="border-b">
+              {recentOrders.length === 0 ? (
 
-                <td className="py-4">MD-10001</td>
+                <tr>
 
-                <td>John Doe</td>
+                  <td
+                    colSpan="6"
+                    className="text-center py-14 text-gray-500"
+                  >
 
-                <td>Luxury Senator Wear</td>
+                    <ShoppingCart
+                      size={36}
+                      className="mx-auto text-gray-300"
+                    />
 
-                <td>₦50,000</td>
+                    <p className="mt-3 font-semibold">
+                      No orders yet
+                    </p>
 
-                <td>
+                    <p className="text-sm mt-1">
+                      Your real customer orders will appear here.
+                    </p>
 
-                  <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm">
+                  </td>
 
-                    Processing
+                </tr>
 
-                  </span>
+              ) : (
 
-                </td>
+                recentOrders.map((order) => {
 
-              </tr>
+                  const sellerItems =
+                    Array.isArray(order.items)
+                      ? order.items.filter(
+                          (item) =>
+                            item?.sellerEmail
+                              ?.trim()
+                              .toLowerCase() ===
+                            user?.email
+                              ?.trim()
+                              .toLowerCase()
+                        )
+                      : [];
 
-              <tr>
+                  return (
+                    <tr
+                      key={order.id}
+                      className="border-b hover:bg-gray-50 transition"
+                    >
 
-                <td className="py-4">MD-10002</td>
+                      <td className="py-4 font-semibold">
+                        {order.id
+                          ? `MD-${String(
+                              order.id
+                            ).padStart(5, "0")}`
+                          : "-"}
+                      </td>
 
-                <td>Mary Johnson</td>
+                      <td>
+                        <div>
 
-                <td>Classic Men's Shoe</td>
+                          <p className="font-medium">
+                            {order.fullName ||
+                              "Customer"}
+                          </p>
 
-                <td>₦18,000</td>
+                          <p className="text-sm text-gray-400">
+                            {order.email || "-"}
+                          </p>
 
-                <td>
+                        </div>
+                      </td>
 
-                  <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">
+                      <td>
 
-                    Delivered
+                        <div className="space-y-1">
 
-                  </span>
+                          {sellerItems
+                            .slice(0, 2)
+                            .map((item) => (
+                              <p
+                                key={
+                                  item.id ||
+                                  item.productId
+                                }
+                                className="text-sm"
+                              >
+                                {item.productName ||
+                                  "Product"}
 
-                </td>
+                                {Number(
+                                  item.quantity
+                                ) > 1 &&
+                                  ` × ${item.quantity}`}
+                              </p>
+                            ))}
 
-              </tr>
+                          {sellerItems.length >
+                            2 && (
+                            <p className="text-xs text-gray-400">
+                              +
+                              {sellerItems.length -
+                                2}{" "}
+                              more
+                            </p>
+                          )}
+
+                        </div>
+
+                      </td>
+
+                      <td className="font-semibold text-green-700">
+                        {formatCurrency(
+                          getSellerOrderAmount(
+                            order
+                          )
+                        )}
+                      </td>
+
+                      <td>
+
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(
+                            order.orderStatus
+                          )}`}
+                        >
+                          {order.orderStatus ||
+                            "Pending"}
+                        </span>
+
+                      </td>
+
+                      <td className="text-sm text-gray-500">
+
+                        {order.createdAt
+                          ? new Date(
+                              order.createdAt
+                            ).toLocaleDateString(
+                              "en-NG",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )
+                          : "-"}
+
+                      </td>
+
+                    </tr>
+                  );
+                })
+
+              )}
 
             </tbody>
 
@@ -228,9 +885,11 @@ function Dashboard() {
 
       </div>
 
-      {/* Sales Overview */}
+      {/* ==========================================
+          SALES OVERVIEW
+      ========================================== */}
 
-      <div className="bg-white rounded-2xl shadow mt-10 p-6">
+      <div className="bg-white rounded-2xl shadow-sm mt-10 p-6">
 
         <div className="flex items-center gap-3 mb-6">
 
@@ -239,30 +898,110 @@ function Dashboard() {
             className="text-green-600"
           />
 
-          <h2 className="text-2xl font-bold">
+          <div>
 
-            Sales Overview
+            <h2 className="text-2xl font-bold">
+              Sales Overview
+            </h2>
 
-          </h2>
+            <p className="text-gray-500 text-sm">
+              Based on your actual orders
+            </p>
 
-        </div>
-
-        <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl">
-
-          <p className="text-gray-500">
-
-            Sales chart will be connected here later.
-
-          </p>
+          </div>
 
         </div>
+
+        {salesOverview.length === 0 ? (
+
+          <div className="h-64 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl">
+
+            <div className="text-center">
+
+              <TrendingUp
+                size={40}
+                className="mx-auto text-gray-300"
+              />
+
+              <p className="text-gray-500 mt-3">
+                No sales data yet
+              </p>
+
+              <p className="text-sm text-gray-400 mt-1">
+                Sales will appear here when customers purchase your products.
+              </p>
+
+            </div>
+
+          </div>
+
+        ) : (
+
+          <div className="space-y-5">
+
+            {salesOverview.map(
+              (sale) => {
+
+                const maxAmount =
+                  Math.max(
+                    ...salesOverview.map(
+                      (item) =>
+                        item.amount
+                    ),
+                    1
+                  );
+
+                const percentage =
+                  Math.min(
+                    100,
+                    (sale.amount /
+                      maxAmount) *
+                      100
+                  );
+
+                return (
+                  <div
+                    key={sale.month}
+                  >
+
+                    <div className="flex justify-between items-center mb-2">
+
+                      <span className="font-medium text-gray-700">
+                        {sale.month}
+                      </span>
+
+                      <span className="font-semibold text-green-700">
+                        {formatCurrency(
+                          sale.amount
+                        )}
+                      </span>
+
+                    </div>
+
+                    <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+
+                      <div
+                        className="h-full bg-green-600 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${percentage}%`,
+                        }}
+                      />
+
+                    </div>
+
+                  </div>
+                );
+              }
+            )}
+
+          </div>
+
+        )}
 
       </div>
 
     </section>
-
   );
-
 }
 
 export default Dashboard;
