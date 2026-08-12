@@ -1,5 +1,4 @@
-const API_URL = "http://localhost:8080/api/auth";
-
+const API_URL = "https://mandilas-market-production.up.railway.app/api/auth";
 export async function registerUser(userData) {
   const response = await fetch(`${API_URL}/register`, {
     method: "POST",

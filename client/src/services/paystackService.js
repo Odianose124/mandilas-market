@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080/api/paystack";
+const API_URL = "https://mandilas-market-production.up.railway.app/api/paystack";
 
 export async function initializePayment(email, amount) {
   const response = await fetch(`${API_URL}/initialize`, {

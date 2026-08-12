@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080/api/orders";
+const API_URL = "https://mandilas-market-production.up.railway.app/api/orders";
 
 /**
  * Create a new order.

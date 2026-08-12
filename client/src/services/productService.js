@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8080/api/products";
+const API_URL = "https://mandilas-market-production.up.railway.app/api/products";
 
 /**
  * Get all products from the Mandilas Market backend.
