@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { registerUser } from "../../services/authService";
 
 function Register() {
   const navigate = useNavigate();
-
-const { login } = useAuth();
+  const { login } = useAuth();
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -18,63 +18,90 @@ const { login } = useAuth();
     role: "buyer",
   });
 
-  const handleChange = (e) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
-
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleRoleChange = (role) => {
+    setFormData((prev) => ({
+      ...prev,
+      role,
+    }));
+  };
 
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (formData.password !== formData.confirmPassword) {
+    setError("");
 
-    alert("Passwords do not match.");
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-    return;
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters long.");
+      return;
+    }
 
-  }
+    if (!formData.agree) {
+      setError("You must agree to the Terms & Conditions and Privacy Policy.");
+      return;
+    }
 
-  login({
+    setLoading(true);
 
-    firstName: formData.firstName,
+    try {
+      const registeredUser = await registerUser(formData);
 
-    lastName: formData.lastName,
+      /*
+       * The backend returns SELLER or BUYER.
+       * The frontend AuthContext uses lowercase roles.
+       */
+      const frontendRole = registeredUser.role
+        ? registeredUser.role.toLowerCase()
+        : formData.role;
 
-    email: formData.email,
+      login({
+        id: registeredUser.id,
+        firstName: registeredUser.firstName,
+        lastName: registeredUser.lastName,
+        email: registeredUser.email,
+        phone: registeredUser.phone,
+        role: frontendRole,
+        sellerVerified: registeredUser.sellerVerified || false,
+      });
 
-    phone: formData.phone,
-
-    role: formData.role,
-
-  });
-
-  if (formData.role === "seller") {
-
-    navigate("/seller/dashboard");
-
-  } else {
-
-    navigate("/dashboard");
-
-  }
-
-};
+      if (frontendRole === "seller") {
+        navigate("/seller/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      setError(
+        error.message ||
+          "Registration failed. Please check your information and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-
     <section className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-12">
-
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-8">
 
-        <div className="text-center mb-10">
+        {/* Header */}
 
+        <div className="text-center mb-10">
           <h1 className="text-4xl font-bold">
             Create Account
           </h1>
@@ -82,13 +109,24 @@ const { login } = useAuth();
           <p className="text-gray-500 mt-3">
             Join Mandilas Market and start shopping or selling.
           </p>
-
         </div>
+
+        {/* Error */}
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Registration Form */}
 
         <form
           onSubmit={handleSubmit}
           className="space-y-6"
         >
+
+          {/* First & Last Name */}
 
           <div className="grid md:grid-cols-2 gap-5">
 
@@ -98,7 +136,7 @@ const { login } = useAuth();
               placeholder="First Name"
               value={formData.firstName}
               onChange={handleChange}
-              className="border rounded-lg p-4 focus:border-green-600 outline-none"
+              className="border rounded-lg p-4 focus:border-green-600 outline-none w-full"
               required
             />
 
@@ -108,11 +146,13 @@ const { login } = useAuth();
               placeholder="Last Name"
               value={formData.lastName}
               onChange={handleChange}
-              className="border rounded-lg p-4 focus:border-green-600 outline-none"
+              className="border rounded-lg p-4 focus:border-green-600 outline-none w-full"
               required
             />
 
           </div>
+
+          {/* Email */}
 
           <input
             type="email"
@@ -123,6 +163,8 @@ const { login } = useAuth();
             className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
             required
           />
+
+          {/* Phone */}
 
           <input
             type="tel"
@@ -137,42 +179,35 @@ const { login } = useAuth();
           {/* Register As */}
 
           <div>
-
             <label className="block font-semibold mb-3">
               Register As
             </label>
 
             <div className="grid grid-cols-2 gap-4">
 
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    role: "buyer",
-                  })
-                }
-                className={`rounded-xl border p-5 font-semibold transition ${
-                  formData.role === "buyer"
-                    ? "bg-green-600 text-white border-green-600"
-                    : "border-gray-300 hover:border-green-600"
-                }`}
-              >
-                🛍 Buyer
-              </button>
+              {/* Buyer */}
 
               <button
                 type="button"
-                onClick={() =>
-                  setFormData({
-                    ...formData,
-                    role: "seller",
-                  })
-                }
-                className={`rounded-xl border p-5 font-semibold transition ${
+                onClick={() => handleRoleChange("buyer")}
+                className={`rounded-xl border p-5 font-semibold transition cursor-pointer ${
+                  formData.role === "buyer"
+                    ? "bg-green-600 text-white border-green-600"
+                    : "border-gray-300 hover:border-green-600 hover:bg-green-50"
+                }`}
+              >
+                🛍️ Buyer
+              </button>
+
+              {/* Seller */}
+
+              <button
+                type="button"
+                onClick={() => handleRoleChange("seller")}
+                className={`rounded-xl border p-5 font-semibold transition cursor-pointer ${
                   formData.role === "seller"
                     ? "bg-green-600 text-white border-green-600"
-                    : "border-gray-300 hover:border-green-600"
+                    : "border-gray-300 hover:border-green-600 hover:bg-green-50"
                 }`}
               >
                 🏪 Seller
@@ -180,7 +215,18 @@ const { login } = useAuth();
 
             </div>
 
+            {/* Selected Role */}
+
+            <p className="mt-3 text-sm text-gray-500">
+              You are registering as a{" "}
+              <span className="font-semibold text-green-700">
+                {formData.role === "seller" ? "Seller" : "Buyer"}
+              </span>
+              .
+            </p>
           </div>
+
+          {/* Password */}
 
           <input
             type="password"
@@ -190,7 +236,10 @@ const { login } = useAuth();
             onChange={handleChange}
             className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
             required
+            minLength={6}
           />
+
+          {/* Confirm Password */}
 
           <input
             type="password"
@@ -200,7 +249,10 @@ const { login } = useAuth();
             onChange={handleChange}
             className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
             required
+            minLength={6}
           />
+
+          {/* Terms */}
 
           <div className="flex items-start gap-3">
 
@@ -209,7 +261,7 @@ const { login } = useAuth();
               name="agree"
               checked={formData.agree}
               onChange={handleChange}
-              className="mt-1"
+              className="mt-1 cursor-pointer"
               required
             />
 
@@ -237,14 +289,23 @@ const { login } = useAuth();
 
           </div>
 
+          {/* Submit */}
+
           <button
             type="submit"
-            className="w-full h-14 rounded-xl bg-green-600 hover:bg-green-700 transition text-white font-semibold text-lg"
+            disabled={loading}
+            className={`w-full h-14 rounded-xl transition text-white font-semibold text-lg ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700 cursor-pointer"
+            }`}
           >
-            Create Account
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
 
         </form>
+
+        {/* Login */}
 
         <div className="mt-8 text-center">
 
@@ -264,11 +325,8 @@ const { login } = useAuth();
         </div>
 
       </div>
-
     </section>
-
   );
-
 }
 
 export default Register;
