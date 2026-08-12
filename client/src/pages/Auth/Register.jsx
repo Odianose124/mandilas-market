@@ -14,6 +14,7 @@ function Register() {
     phone: "",
     password: "",
     confirmPassword: "",
+    storeName: "",
     agree: false,
     role: "buyer",
   });
@@ -34,7 +35,10 @@ function Register() {
     setFormData((prev) => ({
       ...prev,
       role,
+      storeName: role === "buyer" ? "" : prev.storeName,
     }));
+
+    setError("");
   };
 
   const handleSubmit = async (e) => {
@@ -47,24 +51,42 @@ function Register() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (formData.role === "seller" && !formData.storeName.trim()) {
+      setError("Store name is required for seller accounts.");
       return;
     }
 
     if (!formData.agree) {
-      setError("You must agree to the Terms & Conditions and Privacy Policy.");
+      setError(
+        "You must agree to the Terms & Conditions and Privacy Policy."
+      );
       return;
     }
 
     setLoading(true);
 
     try {
-      const registeredUser = await registerUser(formData);
+      const registeredUser = await registerUser({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        password: formData.password,
+        role: formData.role,
+        storeName:
+          formData.role === "seller"
+            ? formData.storeName.trim()
+            : "",
+      });
 
       /*
-       * The backend returns SELLER or BUYER.
-       * The frontend AuthContext uses lowercase roles.
+       * Backend returns BUYER or SELLER.
+       * AuthContext uses lowercase roles.
        */
       const frontendRole = registeredUser.role
         ? registeredUser.role.toLowerCase()
@@ -77,6 +99,7 @@ function Register() {
         email: registeredUser.email,
         phone: registeredUser.phone,
         role: frontendRole,
+        storeName: registeredUser.storeName || "",
         sellerVerified: registeredUser.sellerVerified || false,
       });
 
@@ -218,13 +241,41 @@ function Register() {
             {/* Selected Role */}
 
             <p className="mt-3 text-sm text-gray-500">
-              You are registering as a{" "}
+              You are registering as{" "}
               <span className="font-semibold text-green-700">
                 {formData.role === "seller" ? "Seller" : "Buyer"}
               </span>
               .
             </p>
           </div>
+
+          {/* Seller Store Name */}
+
+          {formData.role === "seller" && (
+            <div>
+              <label
+                htmlFor="storeName"
+                className="block font-semibold mb-2"
+              >
+                Store Name
+              </label>
+
+              <input
+                id="storeName"
+                type="text"
+                name="storeName"
+                placeholder="Enter your store name"
+                value={formData.storeName}
+                onChange={handleChange}
+                className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
+                required
+              />
+
+              <p className="text-xs text-gray-500 mt-2">
+                This is the name buyers will see when they visit your store.
+              </p>
+            </div>
+          )}
 
           {/* Password */}
 
@@ -236,7 +287,7 @@ function Register() {
             onChange={handleChange}
             className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
             required
-            minLength={6}
+            minLength={8}
           />
 
           {/* Confirm Password */}
@@ -249,7 +300,7 @@ function Register() {
             onChange={handleChange}
             className="w-full border rounded-lg p-4 focus:border-green-600 outline-none"
             required
-            minLength={6}
+            minLength={8}
           />
 
           {/* Terms */}
@@ -266,7 +317,6 @@ function Register() {
             />
 
             <p className="text-sm text-gray-600">
-
               I agree to the{" "}
 
               <Link
@@ -284,7 +334,6 @@ function Register() {
               >
                 Privacy Policy
               </Link>
-
             </p>
 
           </div>
@@ -310,7 +359,6 @@ function Register() {
         <div className="mt-8 text-center">
 
           <p className="text-gray-600">
-
             Already have an account?{" "}
 
             <Link
@@ -319,7 +367,6 @@ function Register() {
             >
               Login
             </Link>
-
           </p>
 
         </div>
