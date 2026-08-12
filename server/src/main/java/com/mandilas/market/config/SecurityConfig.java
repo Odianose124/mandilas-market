@@ -28,7 +28,7 @@ public class SecurityConfig {
 
         http
 
-                // Disable CSRF because we are using JWT
+                // Disable CSRF because authentication uses JWT
                 .csrf(csrf -> csrf.disable())
 
                 // Enable CORS
@@ -44,6 +44,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // ==========================================
+                        // PUBLIC BACKEND HEALTH CHECK
+                        // ==========================================
+
+                        .requestMatchers(
+                                "/"
+                        ).permitAll()
+
+                        // ==========================================
                         // PUBLIC AUTHENTICATION
                         // ==========================================
 
@@ -52,16 +60,13 @@ public class SecurityConfig {
                                 "/api/auth/login"
                         ).permitAll()
 
-
                         // ==========================================
                         // SELLER PRODUCT MANAGEMENT
-                        // MUST COME BEFORE PUBLIC PRODUCTS
                         // ==========================================
 
                         .requestMatchers(
                                 "/api/products/seller/**"
                         ).hasRole("SELLER")
-
 
                         // ==========================================
                         // PUBLIC PRODUCT BROWSING
@@ -71,7 +76,6 @@ public class SecurityConfig {
                                 "/api/products/**"
                         ).permitAll()
 
-
                         // ==========================================
                         // ORDERS
                         // ==========================================
@@ -79,7 +83,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/orders/**"
                         ).hasAnyRole("BUYER", "SELLER")
-
 
                         // ==========================================
                         // PAYSTACK
@@ -89,7 +92,6 @@ public class SecurityConfig {
                                 "/api/paystack/**"
                         ).authenticated()
 
-
                         // ==========================================
                         // EVERYTHING ELSE
                         // ==========================================
@@ -97,16 +99,16 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
-                // Disable default Spring Security login
+                // Disable default Spring Security login page
                 .formLogin(form -> form.disable())
 
-                // Disable HTTP Basic authentication
+                // Disable HTTP Basic
                 .httpBasic(basic -> basic.disable())
 
-                // JWT handles authentication
+                // Disable default logout
                 .logout(logout -> logout.disable())
 
-                // Run JWT filter before Spring's username/password filter
+                // JWT filter runs before username/password authentication
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
