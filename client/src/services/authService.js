@@ -1,10 +1,14 @@
-const API_URL = "https://mandilas-market-production.up.railway.app/api/auth";
+const API_URL =
+  "https://mandilas-market-production.up.railway.app/api/auth";
+
 export async function registerUser(userData) {
   const response = await fetch(`${API_URL}/register`, {
     method: "POST",
+
     headers: {
       "Content-Type": "application/json",
     },
+
     body: JSON.stringify({
       firstName: userData.firstName,
       lastName: userData.lastName,
@@ -12,13 +16,21 @@ export async function registerUser(userData) {
       phone: userData.phone,
       password: userData.password,
       role: userData.role,
+
+      // Send store name for seller accounts
+      storeName:
+        userData.role === "seller"
+          ? userData.storeName
+          : "",
     }),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "Registration failed.");
+    throw new Error(
+      data.message || "Registration failed."
+    );
   }
 
   return data;
