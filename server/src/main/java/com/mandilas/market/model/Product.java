@@ -18,6 +18,7 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Product information
     @Column(nullable = false)
     private String name;
 
@@ -30,8 +31,31 @@ public class Product {
     @Column(nullable = false)
     private int stock;
 
+    /*
+     * Main product category.
+     *
+     * Examples:
+     * Men Wear
+     * Women Wear
+     * Shoes
+     * Electronics
+     * Phones & Tablets
+     */
     @Column(nullable = false)
     private String category;
+
+    /*
+     * Product subcategory.
+     *
+     * Examples:
+     * Men Wear -> Shirts
+     * Men Wear -> Trousers
+     * Men Wear -> Senator
+     * Women Wear -> Dresses
+     * Shoes -> Sneakers
+     */
+    @Column(length = 255)
+    private String subcategory;
 
     @Column(length = 255)
     private String brand;
@@ -54,12 +78,19 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String specifications;
 
+    /*
+     * Main product image.
+     */
     @Column(length = 2000)
     private String imageUrl;
 
+    /*
+     * Product video.
+     */
     @Column(length = 2000)
     private String videoUrl;
 
+    // Seller information
     @Column(nullable = false)
     private String sellerEmail;
 
@@ -76,6 +107,10 @@ public class Product {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
     }
+
+    // =========================
+    // GETTERS AND SETTERS
+    // =========================
 
     public Long getId() {
         return id;
@@ -123,6 +158,14 @@ public class Product {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getSubcategory() {
+        return subcategory;
+    }
+
+    public void setSubcategory(String subcategory) {
+        this.subcategory = subcategory;
     }
 
     public String getBrand() {

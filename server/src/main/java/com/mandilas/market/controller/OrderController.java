@@ -1,5 +1,7 @@
 package com.mandilas.market.controller;
 
+import org.springframework.security.core.Authentication;
+
 import com.mandilas.market.model.Order;
 import com.mandilas.market.service.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -101,10 +103,7 @@ public class OrderController {
      *
      * The seller is identified by seller email.
      */
-    @GetMapping("/seller/{email}")
-    public ResponseEntity<?> getOrdersBySellerEmail(
-            @PathVariable String email
-    ) {
+    @GetMapping("/seller") public ResponseEntity<?> getOrdersBySellerEmail(Authentication authentication) { String email = authentication != null ? authentication.getName() : null;
 
         try {
 
@@ -238,3 +237,4 @@ public class OrderController {
         }
     }
 }
+

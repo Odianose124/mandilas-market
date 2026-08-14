@@ -24,8 +24,14 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.jwtAuthenticationFilter =
+                jwtAuthenticationFilter;
     }
+
+
+    // =========================================================
+    // SECURITY FILTER CHAIN
+    // =========================================================
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -34,94 +40,227 @@ public class SecurityConfig {
 
         http
 
-                // JWT API does not use CSRF tokens
-                .csrf(csrf -> csrf.disable())
+                // =================================================
+                // CSRF
+                // =================================================
+                //
+                // JWT API does not use CSRF tokens.
+                //
+                .csrf(csrf ->
+                        csrf.disable()
+                )
 
-                // Enable global CORS
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // JWT authentication is stateless
+                // =================================================
+                // CORS
+                // =================================================
+                //
+                // Enable global CORS configuration.
+                //
+                .cors(cors ->
+                        cors.configurationSource(
+                                corsConfigurationSource()
+                        )
+                )
+
+
+                // =================================================
+                // SESSION MANAGEMENT
+                // =================================================
+                //
+                // JWT authentication is stateless.
+                //
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
+
+                // =================================================
+                // AUTHORIZATION RULES
+                // =================================================
+
                 .authorizeHttpRequests(auth -> auth
 
-                        // ==========================================
+                        // =================================================
                         // PUBLIC BACKEND HEALTH CHECK
-                        // ==========================================
+                        // =================================================
 
                         .requestMatchers(
                                 "/"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        // ==========================================
+
+                        // =================================================
                         // PUBLIC AUTHENTICATION
-                        // ==========================================
+                        // =================================================
 
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        // ==========================================
+
+                        // =================================================
+                        // SELLER STORE MANAGEMENT
+                        // =================================================
+                        //
+                        // /manage/me does NOT contain:
+                        //
+                        // - seller ID
+                        // - seller email
+                        //
+                        // The authenticated seller is identified
+                        // from the verified JWT.
+                        //
+                        // JWT
+                        //   ↓
+                        // userId
+                        //   ↓
+                        // JwtAuthenticationFilter
+                        //   ↓
+                        // Authentication details
+                        //   ↓
+                        // StoreController
+                        //   ↓
+                        // StoreService
+                        //   ↓
+                        // StoreRepository.findBySellerId()
+                        //
+                        // Only SELLER users can access these endpoints.
+                        //
+
+                        .requestMatchers(
+                                "/api/stores/manage/**"
+                        )
+                        .hasRole("SELLER")
+
+
+                        // =================================================
                         // SELLER PRODUCT MANAGEMENT
-                        // ==========================================
+                        // =================================================
 
                         .requestMatchers(
                                 "/api/products/seller/**"
-                        ).hasRole("SELLER")
+                        )
+                        .hasRole("SELLER")
 
-                        // ==========================================
+
+                        // =================================================
+                        // PUBLIC STORE BROWSING
+                        // =================================================
+                        //
+                        // Public store pages do not require
+                        // authentication.
+                        //
+
+                        .requestMatchers(
+                                "/api/stores/**"
+                        )
+                        .permitAll()
+
+
+                        // =================================================
                         // PUBLIC PRODUCT BROWSING
-                        // ==========================================
+                        // =================================================
 
                         .requestMatchers(
                                 "/api/products/**"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
-                        // ==========================================
+
+                        // =================================================
                         // ORDERS
-                        // ==========================================
+                        // =================================================
+                        //
+                        // Both buyers and sellers may access
+                        // order endpoints according to their role.
+                        //
 
                         .requestMatchers(
                                 "/api/orders/**"
-                        ).hasAnyRole("BUYER", "SELLER")
+                        )
+                        .hasAnyRole(
+                                "BUYER",
+                                "SELLER"
+                        )
 
-                        // ==========================================
+
+                        // =================================================
                         // PAYSTACK
-                        // ==========================================
+                        // =================================================
 
                         .requestMatchers(
                                 "/api/paystack/**"
-                        ).authenticated()
+                        )
+                        .authenticated()
 
-                        // ==========================================
+
+                        // =================================================
                         // EVERYTHING ELSE
-                        // ==========================================
+                        // =================================================
+                        //
+                        // Any endpoint not explicitly public
+                        // requires authentication.
+                        //
 
-                        .anyRequest().authenticated()
+                        .anyRequest()
+                        .authenticated()
                 )
 
-                // Disable default Spring Security login
-                .formLogin(form -> form.disable())
 
-                // Disable HTTP Basic
-                .httpBasic(basic -> basic.disable())
+                // =========================================================
+                // DISABLE DEFAULT LOGIN
+                // =========================================================
 
-                // Disable default logout
-                .logout(logout -> logout.disable())
+                .formLogin(form ->
+                        form.disable()
+                )
 
-                // JWT authentication filter
+
+                // =========================================================
+                // DISABLE HTTP BASIC
+                // =========================================================
+
+                .httpBasic(basic ->
+                        basic.disable()
+                )
+
+
+                // =========================================================
+                // DISABLE DEFAULT LOGOUT
+                // =========================================================
+
+                .logout(logout ->
+                        logout.disable()
+                )
+
+
+                // =========================================================
+                // JWT AUTHENTICATION FILTER
+                // =========================================================
+                //
+                // Run our JWT filter before Spring's normal
+                // username/password authentication filter.
+                //
+
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+
         return http.build();
     }
+
+
+    // =========================================================
+    // GLOBAL CORS CONFIGURATION
+    // =========================================================
 
     /**
      * Global CORS configuration.
@@ -135,7 +274,16 @@ public class SecurityConfig {
         CorsConfiguration configuration =
                 new CorsConfiguration();
 
-        // Allow the live frontend and local development frontend
+
+        // =========================================================
+        // ALLOWED ORIGINS
+        // =========================================================
+        //
+        // Supports:
+        // - Vercel deployments
+        // - Local React development
+        //
+
         configuration.setAllowedOriginPatterns(
                 List.of(
                         "https://*.vercel.app",
@@ -144,7 +292,11 @@ public class SecurityConfig {
                 )
         );
 
-        // HTTP methods used by the marketplace
+
+        // =========================================================
+        // ALLOWED HTTP METHODS
+        // =========================================================
+
         configuration.setAllowedMethods(
                 List.of(
                         HttpMethod.GET.name(),
@@ -156,16 +308,47 @@ public class SecurityConfig {
                 )
         );
 
-        // Allow request headers including Authorization/JWT
+
+        // =========================================================
+        // ALLOWED HEADERS
+        // =========================================================
+        //
+        // Includes:
+        // - Authorization
+        // - Content-Type
+        // - Other frontend request headers
+        //
+
         configuration.setAllowedHeaders(
                 List.of("*")
         );
 
-        // Allow Authorization credentials
-        configuration.setAllowCredentials(true);
 
-        // Cache browser CORS preflight results
-        configuration.setMaxAge(3600L);
+        // =========================================================
+        // CREDENTIALS
+        // =========================================================
+
+        configuration.setAllowCredentials(
+                true
+        );
+
+
+        // =========================================================
+        // CORS CACHE
+        // =========================================================
+        //
+        // Browser caches successful preflight requests
+        // for one hour.
+        //
+
+        configuration.setMaxAge(
+                3600L
+        );
+
+
+        // =========================================================
+        // REGISTER CORS CONFIGURATION
+        // =========================================================
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -174,6 +357,7 @@ public class SecurityConfig {
                 "/**",
                 configuration
         );
+
 
         return source;
     }
