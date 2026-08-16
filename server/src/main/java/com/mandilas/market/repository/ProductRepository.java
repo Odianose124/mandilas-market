@@ -29,6 +29,51 @@ public interface ProductRepository
             String sellerEmail
     );
 
+    // =========================================================
+    // DEPARTMENT
+    // =========================================================
+
+    List<Product> findByDepartmentIgnoreCase(
+            String department
+    );
+
+    List<Product> findByDepartmentIgnoreCaseOrderByCreatedAtDesc(
+            String department
+    );
+
+    // =========================================================
+    // DEPARTMENT + CATEGORY
+    // =========================================================
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndCategoryIgnoreCase(
+            String department,
+            String category
+    );
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndCategoryIgnoreCaseOrderByCreatedAtDesc(
+            String department,
+            String category
+    );
+
+    // =========================================================
+    // DEPARTMENT + CATEGORY + SUBCATEGORY
+    // =========================================================
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndCategoryIgnoreCaseAndSubcategoryIgnoreCase(
+            String department,
+            String category,
+            String subcategory
+    );
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndCategoryIgnoreCaseAndSubcategoryIgnoreCaseOrderByCreatedAtDesc(
+            String department,
+            String category,
+            String subcategory
+    );
 
     // =========================================================
     // CATEGORY
@@ -41,7 +86,6 @@ public interface ProductRepository
     List<Product> findByCategoryIgnoreCaseOrderByCreatedAtDesc(
             String category
     );
-
 
     // =========================================================
     // CATEGORY + SUBCATEGORY
@@ -59,7 +103,6 @@ public interface ProductRepository
             String subcategory
     );
 
-
     // =========================================================
     // SUBCATEGORY
     // =========================================================
@@ -72,7 +115,6 @@ public interface ProductRepository
     findBySubcategoryIgnoreCaseOrderByCreatedAtDesc(
             String subcategory
     );
-
 
     // =========================================================
     // BRAND
@@ -87,7 +129,6 @@ public interface ProductRepository
             String brand
     );
 
-
     // =========================================================
     // BASIC SEARCH
     // =========================================================
@@ -101,71 +142,52 @@ public interface ProductRepository
             String name
     );
 
-
     // =========================================================
-    // COMPATIBILITY SEARCH
+    // SEARCH
+    // =========================================================
+    //
+    // Searches:
+    //
+    // name
+    // department
+    // category
+    // subcategory
+    // brand
+    // description
+    //
     // =========================================================
 
-    /*
-     * Kept because ProductService currently uses this
-     * four-field search method.
-     *
-     * Searches:
-     * - Product name
-     * - Category
-     * - Subcategory
-     * - Brand
-     */
     List<Product>
-    findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCase(
+    findByNameContainingIgnoreCaseOrDepartmentContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
             String name,
-            String category,
-            String subcategory,
-            String brand
-    );
-
-
-    // =========================================================
-    // ADVANCED MARKETPLACE SEARCH
-    // =========================================================
-
-    /*
-     * Searches:
-     * - Product name
-     * - Category
-     * - Subcategory
-     * - Brand
-     * - Description
-     */
-    List<Product>
-    findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCaseOrDescriptionContainingIgnoreCase(
-            String name,
+            String department,
             String category,
             String subcategory,
             String brand,
             String description
     );
 
-
-    /*
-     * Advanced marketplace search,
-     * newest products first.
-     */
     List<Product>
-    findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByCreatedAtDesc(
+    findByNameContainingIgnoreCaseOrDepartmentContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByCreatedAtDesc(
             String name,
+            String department,
             String category,
             String subcategory,
             String brand,
             String description
     );
-
 
     // =========================================================
     // STOCK / AVAILABILITY
     // =========================================================
 
     List<Product> findByStatusIgnoreCase(
+            String status
+    );
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndStatusIgnoreCase(
+            String department,
             String status
     );
 
@@ -180,7 +202,6 @@ public interface ProductRepository
             String subcategory,
             String status
     );
-
 
     // =========================================================
     // PRICE FILTERING
@@ -197,6 +218,23 @@ public interface ProductRepository
             double maximumPrice
     );
 
+    // =========================================================
+    // DEPARTMENT + PRICE
+    // =========================================================
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndPriceBetween(
+            String department,
+            double minimumPrice,
+            double maximumPrice
+    );
+
+    List<Product>
+    findByDepartmentIgnoreCaseAndPriceBetweenOrderByCreatedAtDesc(
+            String department,
+            double minimumPrice,
+            double maximumPrice
+    );
 
     // =========================================================
     // CATEGORY + PRICE
@@ -216,9 +254,62 @@ public interface ProductRepository
             double maximumPrice
     );
 
+    // =========================================================
+    // SELLER + DEPARTMENT
+    // =========================================================
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCase(
+            String sellerEmail,
+            String department
+    );
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCaseOrderByCreatedAtDesc(
+            String sellerEmail,
+            String department
+    );
 
     // =========================================================
-    // SELLER + CATEGORY
+    // SELLER + DEPARTMENT + CATEGORY
+    // =========================================================
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCaseAndCategoryIgnoreCase(
+            String sellerEmail,
+            String department,
+            String category
+    );
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCaseAndCategoryIgnoreCaseOrderByCreatedAtDesc(
+            String sellerEmail,
+            String department,
+            String category
+    );
+
+    // =========================================================
+    // SELLER + DEPARTMENT + CATEGORY + SUBCATEGORY
+    // =========================================================
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCaseAndCategoryIgnoreCaseAndSubcategoryIgnoreCase(
+            String sellerEmail,
+            String department,
+            String category,
+            String subcategory
+    );
+
+    List<Product>
+    findBySellerEmailIgnoreCaseAndDepartmentIgnoreCaseAndCategoryIgnoreCaseAndSubcategoryIgnoreCaseOrderByCreatedAtDesc(
+            String sellerEmail,
+            String department,
+            String category,
+            String subcategory
+    );
+
+    // =========================================================
+    // EXISTING SELLER + CATEGORY
     // =========================================================
 
     List<Product>
@@ -246,7 +337,6 @@ public interface ProductRepository
             String category,
             String subcategory
     );
-
 
     // =========================================================
     // SKU

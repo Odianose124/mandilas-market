@@ -1,11 +1,9 @@
 const API_URL =
-  "https://mandilas-market-production.up.railway.app/api/orders";
+  `${import.meta.env.VITE_API_URL}/api/orders`;
 
-/**
- * Get authentication headers.
- */
 function getAuthHeaders() {
-  const token = localStorage.getItem("mandilas-token");
+  const token =
+    localStorage.getItem("mandilas-token");
 
   if (!token) {
     return {};
@@ -16,9 +14,6 @@ function getAuthHeaders() {
   };
 }
 
-/**
- * Create a new order.
- */
 export async function createOrder(orderData) {
   const response = await fetch(API_URL, {
     method: "POST",
@@ -32,19 +27,18 @@ export async function createOrder(orderData) {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText =
+      await response.text();
 
     throw new Error(
-      errorText || "Failed to create order"
+      errorText ||
+        "Failed to create order"
     );
   }
 
   return response.json();
 }
 
-/**
- * Get all orders.
- */
 export async function getAllOrders() {
   const response = await fetch(API_URL, {
     method: "GET",
@@ -63,9 +57,6 @@ export async function getAllOrders() {
   return response.json();
 }
 
-/**
- * Get one order by ID.
- */
 export async function getOrderById(id) {
   const response = await fetch(
     `${API_URL}/${id}`,
@@ -91,12 +82,13 @@ export async function getOrderById(id) {
   return response.json();
 }
 
-/**
- * Get orders belonging to a customer.
- */
-export async function getOrdersByEmail(email) {
+export async function getOrdersByEmail(
+  email
+) {
   const response = await fetch(
-    `${API_URL}/customer/${encodeURIComponent(email)}`,
+    `${API_URL}/customer/${encodeURIComponent(
+      email
+    )}`,
     {
       method: "GET",
 
@@ -115,12 +107,9 @@ export async function getOrdersByEmail(email) {
   return response.json();
 }
 
-/**
- * Get orders belonging to a seller.
- *
- * The backend searches OrderItems using sellerEmail.
- */
-export async function getOrdersBySellerEmail(email) {
+export async function getOrdersBySellerEmail(
+  email
+) {
   if (!email || !email.trim()) {
     throw new Error(
       "Seller email is required"
@@ -128,7 +117,9 @@ export async function getOrdersBySellerEmail(email) {
   }
 
   const response = await fetch(
-    `${API_URL}/seller/${encodeURIComponent(email)}`,
+    `${API_URL}/seller/${encodeURIComponent(
+      email
+    )}`,
     {
       method: "GET",
 
@@ -144,19 +135,20 @@ export async function getOrdersBySellerEmail(email) {
 
     throw new Error(
       errorText ||
-      "Failed to fetch seller orders"
+        "Failed to fetch seller orders"
     );
   }
 
   return response.json();
 }
 
-/**
- * Get orders by order status.
- */
-export async function getOrdersByStatus(status) {
+export async function getOrdersByStatus(
+  status
+) {
   const response = await fetch(
-    `${API_URL}/status/${encodeURIComponent(status)}`,
+    `${API_URL}/status/${encodeURIComponent(
+      status
+    )}`,
     {
       method: "GET",
 
@@ -175,12 +167,13 @@ export async function getOrdersByStatus(status) {
   return response.json();
 }
 
-/**
- * Get orders by payment status.
- */
-export async function getOrdersByPaymentStatus(status) {
+export async function getOrdersByPaymentStatus(
+  status
+) {
   const response = await fetch(
-    `${API_URL}/payment-status/${encodeURIComponent(status)}`,
+    `${API_URL}/payment-status/${encodeURIComponent(
+      status
+    )}`,
     {
       method: "GET",
 
@@ -199,15 +192,14 @@ export async function getOrdersByPaymentStatus(status) {
   return response.json();
 }
 
-/**
- * Update order status.
- */
 export async function updateOrderStatus(
   id,
   status
 ) {
   const response = await fetch(
-    `${API_URL}/${id}/status?status=${encodeURIComponent(status)}`,
+    `${API_URL}/${id}/status?status=${encodeURIComponent(
+      status
+    )}`,
     {
       method: "PUT",
 
@@ -223,22 +215,21 @@ export async function updateOrderStatus(
 
     throw new Error(
       errorText ||
-      "Failed to update order status"
+        "Failed to update order status"
     );
   }
 
   return response.json();
 }
 
-/**
- * Update payment status.
- */
 export async function updatePaymentStatus(
   id,
   status
 ) {
   const response = await fetch(
-    `${API_URL}/${id}/payment-status?status=${encodeURIComponent(status)}`,
+    `${API_URL}/${id}/payment-status?status=${encodeURIComponent(
+      status
+    )}`,
     {
       method: "PUT",
 
@@ -254,16 +245,13 @@ export async function updatePaymentStatus(
 
     throw new Error(
       errorText ||
-      "Failed to update payment status"
+        "Failed to update payment status"
     );
   }
 
   return response.json();
 }
 
-/**
- * Delete an order.
- */
 export async function deleteOrder(id) {
   const response = await fetch(
     `${API_URL}/${id}`,

@@ -12,50 +12,138 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(
+            ProductRepository productRepository
+    ) {
         this.productRepository = productRepository;
     }
 
-    /*
-     * Get all products.
-     */
+    // =========================================================
+    // GET ALL PRODUCTS
+    // =========================================================
+
     public List<Product> getAllProducts() {
+
         return productRepository.findAll();
     }
 
-    /*
-     * Get one product by ID.
-     */
-    public Optional<Product> getProductById(Long id) {
+    // =========================================================
+    // GET PRODUCT BY ID
+    // =========================================================
+
+    public Optional<Product> getProductById(
+            Long id
+    ) {
+
         return productRepository.findById(id);
     }
 
-    /*
-     * Create a new product.
-     */
-    public Product createProduct(Product product) {
+    // =========================================================
+    // CREATE PRODUCT
+    // =========================================================
+
+    public Product createProduct(
+            Product product
+    ) {
+
+        if (product == null) {
+
+            throw new RuntimeException(
+                    "Product data is required"
+            );
+        }
+
+        if (
+                product.getSellerEmail() == null ||
+                product.getSellerEmail().isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Authenticated seller is required"
+            );
+        }
+
+        if (
+                product.getDepartment() == null ||
+                product.getDepartment().isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Department is required"
+            );
+        }
+
+        if (
+                product.getCategory() == null ||
+                product.getCategory().isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Category is required"
+            );
+        }
+
         return productRepository.save(product);
     }
 
-    /*
-     * Update an existing product.
-     */
+    // =========================================================
+    // UPDATE PRODUCT
+    // =========================================================
+
     public Product updateProduct(
             Long id,
-            Product updatedProduct
+            Product updatedProduct,
+            String authenticatedSellerEmail
     ) {
 
+        if (
+                authenticatedSellerEmail == null ||
+                authenticatedSellerEmail.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Authenticated seller is required"
+            );
+        }
+
         Product existingProduct =
-                productRepository.findById(id)
+                productRepository
+                        .findById(id)
                         .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Product not found"
-                                )
+                                () ->
+                                        new RuntimeException(
+                                                "Product not found"
+                                        )
                         );
 
-        // =========================
+        // =====================================================
+        // OWNERSHIP CHECK
+        // =====================================================
+
+        if (
+                existingProduct.getSellerEmail() == null ||
+                !existingProduct
+                        .getSellerEmail()
+                        .equalsIgnoreCase(
+                                authenticatedSellerEmail
+                        )
+        ) {
+
+            throw new RuntimeException(
+                    "You are not authorized to update this product"
+            );
+        }
+
+        if (updatedProduct == null) {
+
+            throw new RuntimeException(
+                    "Updated product data is required"
+            );
+        }
+
+        // =====================================================
         // PRODUCT INFORMATION
-        // =========================
+        // =====================================================
 
         existingProduct.setName(
                 updatedProduct.getName()
@@ -73,21 +161,33 @@ public class ProductService {
                 updatedProduct.getStock()
         );
 
-        // =========================
-        // CATEGORY INFORMATION
-        // =========================
+        // =====================================================
+        // DEPARTMENT
+        // =====================================================
+
+        existingProduct.setDepartment(
+                updatedProduct.getDepartment()
+        );
+
+        // =====================================================
+        // CATEGORY
+        // =====================================================
 
         existingProduct.setCategory(
                 updatedProduct.getCategory()
         );
 
+        // =====================================================
+        // SUBCATEGORY
+        // =====================================================
+
         existingProduct.setSubcategory(
                 updatedProduct.getSubcategory()
         );
 
-        // =========================
-        // ADDITIONAL PRODUCT INFORMATION
-        // =========================
+        // =====================================================
+        // ADDITIONAL INFORMATION
+        // =====================================================
 
         existingProduct.setBrand(
                 updatedProduct.getBrand()
@@ -117,123 +217,264 @@ public class ProductService {
                 updatedProduct.getSpecifications()
         );
 
-        // =========================
+        // =====================================================
         // MEDIA
-        // =========================
+        // =====================================================
 
-        existingProduct.setImageUrl(
-                updatedProduct.getImageUrl()
-        );
+        /*
+         * Only replace the image URL if the frontend actually
+         * provides a new value.
+         */
 
-        existingProduct.setVideoUrl(
-                updatedProduct.getVideoUrl()
-        );
+        if (
+                updatedProduct.getImageUrl() != null &&
+                !updatedProduct.getImageUrl().isBlank()
+        ) {
 
-        // =========================
-        // SELLER INFORMATION
-        // =========================
-
-        existingProduct.setSellerEmail(
-                updatedProduct.getSellerEmail()
-        );
-
-        existingProduct.setSellerName(
-                updatedProduct.getSellerName()
-        );
-
-        return productRepository.save(existingProduct);
-    }
-
-    /*
-     * Delete product.
-     */
-    public void deleteProduct(Long id) {
-
-        if (!productRepository.existsById(id)) {
-
-            throw new RuntimeException(
-                    "Product not found"
+            existingProduct.setImageUrl(
+                    updatedProduct.getImageUrl()
             );
         }
 
-        productRepository.deleteById(id);
+        /*
+         * Only replace the video URL if the frontend actually
+         * provides a new value.
+         */
+
+        if (
+                updatedProduct.getVideoUrl() != null &&
+                !updatedProduct.getVideoUrl().isBlank()
+        ) {
+
+            existingProduct.setVideoUrl(
+                    updatedProduct.getVideoUrl()
+            );
+        }
+
+        /*
+         * DO NOT copy:
+         *
+         * sellerEmail
+         * sellerName
+         * id
+         * createdAt
+         *
+         * from the frontend.
+         *
+         * Product ownership remains unchanged.
+         */
+
+        return productRepository.save(
+                existingProduct
+        );
     }
 
-    /*
-     * Get products belonging to a seller.
-     */
+    // =========================================================
+    // DELETE PRODUCT
+    // =========================================================
+
+    public void deleteProduct(
+            Long id,
+            String authenticatedSellerEmail
+    ) {
+
+        if (
+                authenticatedSellerEmail == null ||
+                authenticatedSellerEmail.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Authenticated seller is required"
+            );
+        }
+
+        Product existingProduct =
+                productRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Product not found"
+                                        )
+                        );
+
+        // =====================================================
+        // OWNERSHIP CHECK
+        // =====================================================
+
+        if (
+                existingProduct.getSellerEmail() == null ||
+                !existingProduct
+                        .getSellerEmail()
+                        .equalsIgnoreCase(
+                                authenticatedSellerEmail
+                        )
+        ) {
+
+            throw new RuntimeException(
+                    "You are not authorized to delete this product"
+            );
+        }
+
+        productRepository.delete(
+                existingProduct
+        );
+    }
+
+    // =========================================================
+    // GET SELLER PRODUCTS
+    // =========================================================
+
     public List<Product> getProductsBySeller(
             String sellerEmail
     ) {
 
-        return productRepository.findBySellerEmail(
-                sellerEmail
-        );
+        if (
+                sellerEmail == null ||
+                sellerEmail.isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Authenticated seller is required"
+            );
+        }
+
+        return productRepository
+                .findBySellerEmailIgnoreCaseOrderByCreatedAtDesc(
+                        sellerEmail
+                );
     }
 
-    /*
-     * Get products by main category.
-     */
-    public List<Product> getProductsByCategory(
+    // =========================================================
+    // GET PRODUCTS BY DEPARTMENT
+    // =========================================================
+
+    public List<Product> getProductsByDepartment(
+            String department
+    ) {
+
+        return productRepository
+                .findByDepartmentIgnoreCaseOrderByCreatedAtDesc(
+                        department
+                );
+    }
+
+    // =========================================================
+    // GET PRODUCTS BY DEPARTMENT + CATEGORY
+    // =========================================================
+
+    public List<Product>
+    getProductsByDepartmentAndCategory(
+            String department,
             String category
     ) {
 
-        return productRepository.findByCategoryIgnoreCase(
-                category
-        );
+        return productRepository
+                .findByDepartmentIgnoreCaseAndCategoryIgnoreCaseOrderByCreatedAtDesc(
+                        department,
+                        category
+                );
     }
 
-    /*
-     * Get products by category AND subcategory.
-     */
-    public List<Product> getProductsByCategoryAndSubcategory(
+    // =========================================================
+    // GET PRODUCTS BY DEPARTMENT + CATEGORY + SUBCATEGORY
+    // =========================================================
+
+    public List<Product>
+    getProductsByDepartmentAndCategoryAndSubcategory(
+            String department,
             String category,
             String subcategory
     ) {
 
         return productRepository
-                .findByCategoryIgnoreCaseAndSubcategoryIgnoreCase(
+                .findByDepartmentIgnoreCaseAndCategoryIgnoreCaseAndSubcategoryIgnoreCaseOrderByCreatedAtDesc(
+                        department,
                         category,
                         subcategory
                 );
     }
 
-    /*
-     * Get products by subcategory.
-     */
+    // =========================================================
+    // GET PRODUCTS BY CATEGORY
+    // =========================================================
+
+    public List<Product> getProductsByCategory(
+            String category
+    ) {
+
+        return productRepository
+                .findByCategoryIgnoreCaseOrderByCreatedAtDesc(
+                        category
+                );
+    }
+
+    // =========================================================
+    // GET PRODUCTS BY CATEGORY + SUBCATEGORY
+    // =========================================================
+
+    public List<Product>
+    getProductsByCategoryAndSubcategory(
+            String category,
+            String subcategory
+    ) {
+
+        return productRepository
+                .findByCategoryIgnoreCaseAndSubcategoryIgnoreCaseOrderByCreatedAtDesc(
+                        category,
+                        subcategory
+                );
+    }
+
+    // =========================================================
+    // GET PRODUCTS BY SUBCATEGORY
+    // =========================================================
+
     public List<Product> getProductsBySubcategory(
             String subcategory
     ) {
 
         return productRepository
-                .findBySubcategoryIgnoreCase(
+                .findBySubcategoryIgnoreCaseOrderByCreatedAtDesc(
                         subcategory
                 );
     }
 
-    /*
-     * Search products.
-     *
-     * Searches through:
-     * - Product name
-     * - Category
-     * - Subcategory
-     * - Brand
-     */
+    // =========================================================
+    // SEARCH PRODUCTS
+    // =========================================================
+    //
+    // Searches:
+    //
+    // Product name
+    // Department
+    // Category
+    // Subcategory
+    // Brand
+    // Description
+    //
+    // =========================================================
+
     public List<Product> searchProducts(
             String searchTerm
     ) {
 
-        if (searchTerm == null ||
-                searchTerm.trim().isEmpty()) {
+        if (
+                searchTerm == null ||
+                searchTerm.trim().isEmpty()
+        ) {
 
-            return productRepository.findAll();
+            return productRepository
+                    .findAll();
         }
 
-        String term = searchTerm.trim();
+        String term =
+                searchTerm.trim();
 
         return productRepository
-                .findByNameContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCase(
+                .findByNameContainingIgnoreCaseOrDepartmentContainingIgnoreCaseOrCategoryContainingIgnoreCaseOrSubcategoryContainingIgnoreCaseOrBrandContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByCreatedAtDesc(
+                        term,
+                        term,
                         term,
                         term,
                         term,

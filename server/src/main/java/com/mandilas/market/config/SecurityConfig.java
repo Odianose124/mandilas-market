@@ -1,6 +1,7 @@
 package com.mandilas.market.config;
 
 import com.mandilas.market.security.JwtAuthenticationFilter;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -9,6 +10,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -24,10 +26,8 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
-        this.jwtAuthenticationFilter =
-                jwtAuthenticationFilter;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
-
 
     // =========================================================
     // SECURITY FILTER CHAIN
@@ -43,58 +43,46 @@ public class SecurityConfig {
                 // =================================================
                 // CSRF
                 // =================================================
-                //
-                // JWT API does not use CSRF tokens.
-                //
+
                 .csrf(csrf ->
                         csrf.disable()
                 )
 
-
                 // =================================================
                 // CORS
                 // =================================================
-                //
-                // Enable global CORS configuration.
-                //
+
                 .cors(cors ->
                         cors.configurationSource(
                                 corsConfigurationSource()
                         )
                 )
 
-
                 // =================================================
                 // SESSION MANAGEMENT
                 // =================================================
-                //
-                // JWT authentication is stateless.
-                //
+
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
-
                 // =================================================
-                // AUTHORIZATION RULES
+                // AUTHORIZATION
                 // =================================================
 
                 .authorizeHttpRequests(auth -> auth
 
                         // =================================================
-                        // PUBLIC BACKEND HEALTH CHECK
+                        // PUBLIC ROOT
                         // =================================================
 
-                        .requestMatchers(
-                                "/"
-                        )
+                        .requestMatchers("/")
                         .permitAll()
 
-
                         // =================================================
-                        // PUBLIC AUTHENTICATION
+                        // PUBLIC AUTH
                         // =================================================
 
                         .requestMatchers(
@@ -103,41 +91,57 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
-
                         // =================================================
-                        // SELLER STORE MANAGEMENT
+                        // PUBLIC PRODUCT GET REQUESTS
                         // =================================================
                         //
-                        // /manage/me does NOT contain:
-                        //
-                        // - seller ID
-                        // - seller email
-                        //
-                        // The authenticated seller is identified
-                        // from the verified JWT.
-                        //
-                        // JWT
-                        //   ↓
-                        // userId
-                        //   ↓
-                        // JwtAuthenticationFilter
-                        //   ↓
-                        // Authentication details
-                        //   ↓
-                        // StoreController
-                        //   ↓
-                        // StoreService
-                        //   ↓
-                        // StoreRepository.findBySellerId()
-                        //
-                        // Only SELLER users can access these endpoints.
+                        // Buyers and guests can browse products.
                         //
 
                         .requestMatchers(
-                                "/api/stores/manage/**"
+                                HttpMethod.GET,
+                                "/api/products/**"
+                        )
+                        .permitAll()
+
+                        // =================================================
+                        // SELLER PRODUCT CREATION
+                        // =================================================
+                        //
+                        // Only authenticated sellers can create products.
+                        //
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/products/**"
                         )
                         .hasRole("SELLER")
 
+                        // =================================================
+                        // SELLER PRODUCT UPDATE
+                        // =================================================
+                        //
+                        // Authentication is required here.
+                        //
+                        // ProductService additionally verifies that
+                        // the product belongs to the authenticated seller.
+                        //
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/products/**"
+                        )
+                        .hasRole("SELLER")
+
+                        // =================================================
+                        // SELLER PRODUCT DELETE
+                        // =================================================
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/products/**"
+                        )
+                        .hasRole("SELLER")
 
                         // =================================================
                         // SELLER PRODUCT MANAGEMENT
@@ -148,38 +152,27 @@ public class SecurityConfig {
                         )
                         .hasRole("SELLER")
 
+                        // =================================================
+                        // SELLER STORE MANAGEMENT
+                        // =================================================
+
+                        .requestMatchers(
+                                "/api/stores/manage/**"
+                        )
+                        .hasRole("SELLER")
 
                         // =================================================
                         // PUBLIC STORE BROWSING
                         // =================================================
-                        //
-                        // Public store pages do not require
-                        // authentication.
-                        //
 
                         .requestMatchers(
                                 "/api/stores/**"
                         )
                         .permitAll()
 
-
-                        // =================================================
-                        // PUBLIC PRODUCT BROWSING
-                        // =================================================
-
-                        .requestMatchers(
-                                "/api/products/**"
-                        )
-                        .permitAll()
-
-
                         // =================================================
                         // ORDERS
                         // =================================================
-                        //
-                        // Both buyers and sellers may access
-                        // order endpoints according to their role.
-                        //
 
                         .requestMatchers(
                                 "/api/orders/**"
@@ -188,7 +181,6 @@ public class SecurityConfig {
                                 "BUYER",
                                 "SELLER"
                         )
-
 
                         // =================================================
                         // PAYSTACK
@@ -199,90 +191,59 @@ public class SecurityConfig {
                         )
                         .authenticated()
 
-
                         // =================================================
                         // EVERYTHING ELSE
                         // =================================================
-                        //
-                        // Any endpoint not explicitly public
-                        // requires authentication.
-                        //
 
                         .anyRequest()
                         .authenticated()
                 )
 
-
-                // =========================================================
+                // =================================================
                 // DISABLE DEFAULT LOGIN
-                // =========================================================
+                // =================================================
 
                 .formLogin(form ->
                         form.disable()
                 )
 
-
-                // =========================================================
+                // =================================================
                 // DISABLE HTTP BASIC
-                // =========================================================
+                // =================================================
 
                 .httpBasic(basic ->
                         basic.disable()
                 )
 
-
-                // =========================================================
+                // =================================================
                 // DISABLE DEFAULT LOGOUT
-                // =========================================================
+                // =================================================
 
                 .logout(logout ->
                         logout.disable()
                 )
 
-
-                // =========================================================
-                // JWT AUTHENTICATION FILTER
-                // =========================================================
-                //
-                // Run our JWT filter before Spring's normal
-                // username/password authentication filter.
-                //
+                // =================================================
+                // JWT FILTER
+                // =================================================
 
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class
                 );
 
-
         return http.build();
     }
 
-
     // =========================================================
-    // GLOBAL CORS CONFIGURATION
+    // CORS
     // =========================================================
 
-    /**
-     * Global CORS configuration.
-     *
-     * This allows the React frontend to communicate
-     * with the Spring Boot backend.
-     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration configuration =
                 new CorsConfiguration();
-
-
-        // =========================================================
-        // ALLOWED ORIGINS
-        // =========================================================
-        //
-        // Supports:
-        // - Vercel deployments
-        // - Local React development
-        //
 
         configuration.setAllowedOriginPatterns(
                 List.of(
@@ -291,11 +252,6 @@ public class SecurityConfig {
                         "https://localhost:*"
                 )
         );
-
-
-        // =========================================================
-        // ALLOWED HTTP METHODS
-        // =========================================================
 
         configuration.setAllowedMethods(
                 List.of(
@@ -308,47 +264,13 @@ public class SecurityConfig {
                 )
         );
 
-
-        // =========================================================
-        // ALLOWED HEADERS
-        // =========================================================
-        //
-        // Includes:
-        // - Authorization
-        // - Content-Type
-        // - Other frontend request headers
-        //
-
         configuration.setAllowedHeaders(
                 List.of("*")
         );
 
+        configuration.setAllowCredentials(true);
 
-        // =========================================================
-        // CREDENTIALS
-        // =========================================================
-
-        configuration.setAllowCredentials(
-                true
-        );
-
-
-        // =========================================================
-        // CORS CACHE
-        // =========================================================
-        //
-        // Browser caches successful preflight requests
-        // for one hour.
-        //
-
-        configuration.setMaxAge(
-                3600L
-        );
-
-
-        // =========================================================
-        // REGISTER CORS CONFIGURATION
-        // =========================================================
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -357,7 +279,6 @@ public class SecurityConfig {
                 "/**",
                 configuration
         );
-
 
         return source;
     }

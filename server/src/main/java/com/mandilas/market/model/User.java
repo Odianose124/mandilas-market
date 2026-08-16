@@ -1,6 +1,8 @@
 package com.mandilas.market.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,6 +25,7 @@ public class User {
     @Column(nullable = false)
     private String phone;
 
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 
@@ -32,8 +35,10 @@ public class User {
 
     private String storeName;
 
+    @Column(nullable = false)
     private boolean sellerVerified = false;
 
+    @Column(nullable = false)
     private double walletBalance = 0.0;
 
     private LocalDateTime createdAt;
@@ -41,6 +46,9 @@ public class User {
     public enum Role {
         BUYER,
         SELLER
+    }
+
+    public User() {
     }
 
     @PrePersist

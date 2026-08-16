@@ -18,7 +18,7 @@ import {
   deleteProduct as deleteProductApi,
 } from "../services/productService";
 
-const ProductContext = createContext();
+const ProductContext = createContext(null);
 
 export function ProductProvider({ children }) {
   const [products, setProducts] = useState([]);
@@ -26,15 +26,22 @@ export function ProductProvider({ children }) {
   const [error, setError] = useState(null);
 
   /*
-   * ==========================================
+   * =========================================================
    * LOAD ALL PRODUCTS
-   * ==========================================
+   * =========================================================
    *
-   * Products come directly from the live backend.
+   * Loads products directly from the live backend.
+   *
+   * IMPORTANT:
+   * This function RETURNS the products as well as updating
+   * the context state.
+   *
+   * Shop.jsx depends on this return value when it does:
+   *
+   * const result = await getAllProducts();
+   *
+   * Therefore, returning the fetched array is required.
    */
-  useEffect(() => {
-    loadProducts();
-  }, []);
 
   const loadProducts = async () => {
     try {
@@ -43,42 +50,81 @@ export function ProductProvider({ children }) {
 
       const data = await fetchAllProducts();
 
-      setProducts(Array.isArray(data) ? data : []);
+      const productList = Array.isArray(data)
+        ? data
+        : [];
+
+      setProducts(productList);
+
+      /*
+       * IMPORTANT:
+       * Return the products so Shop.jsx and other components
+       * can directly use the result.
+       */
+      return productList;
     } catch (err) {
       console.error(
         "Failed to load products:",
         err
       );
 
-      setError(
-        err.message || "Failed to load products"
-      );
+      const message =
+        err?.message ||
+        "Failed to load products";
+
+      setError(message);
+
+      /*
+       * Return an empty array instead of undefined.
+       *
+       * This prevents Shop.jsx from receiving undefined
+       * when it expects an array.
+       */
+      return [];
     } finally {
       setLoading(false);
     }
   };
 
   /*
-   * ==========================================
-   * ADD PRODUCT
-   * ==========================================
-   *
-   * Used when a seller uploads a new product.
-   *
-   * The product is saved in the backend/database
-   * and then added to the current frontend state.
+   * =========================================================
+   * INITIAL PRODUCT LOAD
+   * =========================================================
    */
-  const addProduct = async (productData) => {
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  /*
+   * =========================================================
+   * ADD PRODUCT
+   * =========================================================
+   *
+   * Used when a seller creates/uploads a product.
+   */
+
+  const addProduct = async (
+    productData
+  ) => {
     try {
       setError(null);
 
       const savedProduct =
-        await createProductApi(productData);
+        await createProductApi(
+          productData
+        );
 
-      setProducts((currentProducts) => [
-        ...currentProducts,
-        savedProduct,
-      ]);
+      /*
+       * Add the newly created product to
+       * the current frontend state.
+       */
+      setProducts(
+        (currentProducts) => [
+          ...currentProducts,
+          savedProduct,
+        ]
+      );
 
       return savedProduct;
     } catch (err) {
@@ -87,19 +133,22 @@ export function ProductProvider({ children }) {
         err
       );
 
-      setError(
-        err.message || "Failed to add product"
-      );
+      const message =
+        err?.message ||
+        "Failed to add product";
+
+      setError(message);
 
       throw err;
     }
   };
 
   /*
-   * ==========================================
+   * =========================================================
    * UPDATE PRODUCT
-   * ==========================================
+   * =========================================================
    */
+
   const updateProduct = async (
     productId,
     productData
@@ -113,12 +162,19 @@ export function ProductProvider({ children }) {
           productData
         );
 
-      setProducts((currentProducts) =>
-        currentProducts.map((product) =>
-          product.id === productId
-            ? updatedProduct
-            : product
-        )
+      /*
+       * Replace the old product with
+       * the updated product.
+       */
+      setProducts(
+        (currentProducts) =>
+          currentProducts.map(
+            (product) =>
+              String(product.id) ===
+              String(productId)
+                ? updatedProduct
+                : product
+          )
       );
 
       return updatedProduct;
@@ -128,29 +184,43 @@ export function ProductProvider({ children }) {
         err
       );
 
-      setError(
-        err.message || "Failed to update product"
-      );
+      const message =
+        err?.message ||
+        "Failed to update product";
+
+      setError(message);
 
       throw err;
     }
   };
 
   /*
-   * ==========================================
+   * =========================================================
    * DELETE PRODUCT
-   * ==========================================
+   * =========================================================
    */
-  const deleteProduct = async (productId) => {
+
+  const deleteProduct = async (
+    productId
+  ) => {
     try {
       setError(null);
 
-      await deleteProductApi(productId);
+      await deleteProductApi(
+        productId
+      );
 
-      setProducts((currentProducts) =>
-        currentProducts.filter(
-          (product) => product.id !== productId
-        )
+      /*
+       * Remove the deleted product
+       * from frontend state.
+       */
+      setProducts(
+        (currentProducts) =>
+          currentProducts.filter(
+            (product) =>
+              String(product.id) !==
+              String(productId)
+          )
       );
     } catch (err) {
       console.error(
@@ -158,73 +228,83 @@ export function ProductProvider({ children }) {
         err
       );
 
-      setError(
-        err.message || "Failed to delete product"
-      );
+      const message =
+        err?.message ||
+        "Failed to delete product";
+
+      setError(message);
 
       throw err;
     }
   };
 
   /*
-   * ==========================================
+   * =========================================================
    * GET ONE PRODUCT
-   * ==========================================
+   * =========================================================
    */
-  const getProduct = async (productId) => {
+
+  const getProduct = async (
+    productId
+  ) => {
     try {
       setError(null);
 
-      return await getProductById(productId);
+      return await getProductById(
+        productId
+      );
     } catch (err) {
       console.error(
         "Failed to get product:",
         err
       );
 
-      setError(
-        err.message || "Failed to get product"
-      );
+      const message =
+        err?.message ||
+        "Failed to get product";
+
+      setError(message);
 
       throw err;
     }
   };
 
   /*
-   * ==========================================
+   * =========================================================
    * GET SELLER PRODUCTS
-   * ==========================================
+   * =========================================================
    *
-   * Returns products belonging to one seller.
+   * Used by the seller dashboard.
    */
-  const getSellerProducts = async (
-    sellerEmail
-  ) => {
-    try {
-      setError(null);
 
-      return await getProductsBySeller(
-        sellerEmail
-      );
-    } catch (err) {
-      console.error(
-        "Failed to get seller products:",
-        err
-      );
+  const getSellerProducts =
+    async (sellerEmail) => {
+      try {
+        setError(null);
 
-      setError(
-        err.message ||
-          "Failed to get seller products"
-      );
+        return await getProductsBySeller(
+          sellerEmail
+        );
+      } catch (err) {
+        console.error(
+          "Failed to get seller products:",
+          err
+        );
 
-      throw err;
-    }
-  };
+        const message =
+          err?.message ||
+          "Failed to get seller products";
+
+        setError(message);
+
+        throw err;
+      }
+    };
 
   /*
-   * ==========================================
+   * =========================================================
    * GET PRODUCTS BY CATEGORY
-   * ==========================================
+   * =========================================================
    *
    * Example:
    *
@@ -234,34 +314,35 @@ export function ProductProvider({ children }) {
    * Bags
    * Watches
    */
-  const getCategoryProducts = async (
-    category
-  ) => {
-    try {
-      setError(null);
 
-      return await getProductsByCategory(
-        category
-      );
-    } catch (err) {
-      console.error(
-        "Failed to get category products:",
-        err
-      );
+  const getCategoryProducts =
+    async (category) => {
+      try {
+        setError(null);
 
-      setError(
-        err.message ||
-          "Failed to get category products"
-      );
+        return await getProductsByCategory(
+          category
+        );
+      } catch (err) {
+        console.error(
+          "Failed to get category products:",
+          err
+        );
 
-      throw err;
-    }
-  };
+        const message =
+          err?.message ||
+          "Failed to get category products";
+
+        setError(message);
+
+        throw err;
+      }
+    };
 
   /*
-   * ==========================================
+   * =========================================================
    * GET PRODUCTS BY CATEGORY + SUBCATEGORY
-   * ==========================================
+   * =========================================================
    *
    * Example:
    *
@@ -269,6 +350,7 @@ export function ProductProvider({ children }) {
    * Women's Wear -> Dresses
    * Shoes -> Sneakers
    */
+
   const getCategoryAndSubcategoryProducts =
     async (
       category,
@@ -287,138 +369,267 @@ export function ProductProvider({ children }) {
           err
         );
 
-        setError(
-          err.message ||
-            "Failed to get category and subcategory products"
-        );
+        const message =
+          err?.message ||
+          "Failed to get category and subcategory products";
+
+        setError(message);
 
         throw err;
       }
     };
 
   /*
-   * ==========================================
+   * =========================================================
    * GET PRODUCTS BY SUBCATEGORY
-   * ==========================================
+   * =========================================================
    */
-  const getSubcategoryProducts = async (
-    subcategory
-  ) => {
-    try {
-      setError(null);
 
-      return await getProductsBySubcategory(
-        subcategory
-      );
-    } catch (err) {
-      console.error(
-        "Failed to get subcategory products:",
-        err
-      );
+  const getSubcategoryProducts =
+    async (subcategory) => {
+      try {
+        setError(null);
 
-      setError(
-        err.message ||
-          "Failed to get subcategory products"
-      );
+        return await getProductsBySubcategory(
+          subcategory
+        );
+      } catch (err) {
+        console.error(
+          "Failed to get subcategory products:",
+          err
+        );
 
-      throw err;
-    }
+        const message =
+          err?.message ||
+          "Failed to get subcategory products";
+
+        setError(message);
+
+        throw err;
+      }
+    };
+
+  /*
+   * =========================================================
+   * SEARCH PRODUCTS
+   * =========================================================
+   *
+   * Search is handled by the backend.
+   *
+   * Searches:
+   * - Product name
+   * - Category
+   * - Subcategory
+   * - Brand
+   * - Description
+   */
+
+  const searchProductList =
+    async (name) => {
+      try {
+        setError(null);
+
+        return await searchProducts(
+          name
+        );
+      } catch (err) {
+        console.error(
+          "Failed to search products:",
+          err
+        );
+
+        const message =
+          err?.message ||
+          "Failed to search products";
+
+        setError(message);
+
+        throw err;
+      }
+    };
+
+  /*
+   * =========================================================
+   * CLEAR ERROR
+   * =========================================================
+   *
+   * Useful for forms/pages that need to manually clear
+   * an existing product error.
+   */
+
+  const clearError = () => {
+    setError(null);
   };
 
   /*
-   * ==========================================
-   * SEARCH PRODUCTS
-   * ==========================================
-   *
-   * Search is performed by the backend.
+   * =========================================================
+   * CONTEXT VALUE
+   * =========================================================
    */
-  const searchProductList = async (name) => {
-    try {
-      setError(null);
 
-      return await searchProducts(name);
-    } catch (err) {
-      console.error(
-        "Failed to search products:",
-        err
-      );
+  const contextValue = {
+    /*
+     * -------------------------------------------------------
+     * CURRENT PRODUCTS
+     * -------------------------------------------------------
+     */
 
-      setError(
-        err.message ||
-          "Failed to search products"
-      );
+    products,
 
-      throw err;
-    }
+    /*
+     * -------------------------------------------------------
+     * LOADING
+     * -------------------------------------------------------
+     */
+
+    loading,
+
+    /*
+     * -------------------------------------------------------
+     * ERROR
+     * -------------------------------------------------------
+     */
+
+    error,
+
+    /*
+     * -------------------------------------------------------
+     * ERROR CONTROL
+     * -------------------------------------------------------
+     */
+
+    clearError,
+
+    /*
+     * -------------------------------------------------------
+     * PRODUCT MANAGEMENT
+     * -------------------------------------------------------
+     */
+
+    addProduct,
+
+    updateProduct,
+
+    deleteProduct,
+
+    /*
+     * -------------------------------------------------------
+     * SINGLE PRODUCT
+     * -------------------------------------------------------
+     */
+
+    getProduct,
+
+    /*
+     * -------------------------------------------------------
+     * SELLER PRODUCTS
+     * -------------------------------------------------------
+     */
+
+    getSellerProducts,
+
+    /*
+     * -------------------------------------------------------
+     * ALL PRODUCTS
+     * -------------------------------------------------------
+     *
+     * IMPORTANT:
+     * getAllProducts now RETURNS an array.
+     *
+     * This is required by Shop.jsx.
+     */
+
+    getAllProducts:
+      loadProducts,
+
+    /*
+     * -------------------------------------------------------
+     * CATEGORY PRODUCTS
+     * -------------------------------------------------------
+     */
+
+    getCategoryProducts,
+
+    /*
+     * -------------------------------------------------------
+     * CATEGORY + SUBCATEGORY
+     * -------------------------------------------------------
+     */
+
+    getCategoryAndSubcategoryProducts,
+
+    /*
+     * -------------------------------------------------------
+     * SUBCATEGORY PRODUCTS
+     * -------------------------------------------------------
+     */
+
+    getSubcategoryProducts,
+
+    /*
+     * -------------------------------------------------------
+     * SEARCH
+     * -------------------------------------------------------
+     *
+     * Both names are exposed for compatibility.
+     *
+     * Shop.jsx currently uses:
+     *
+     * searchProductList
+     *
+     * Other components can use:
+     *
+     * searchProducts
+     */
+
+    searchProductList,
+
+    searchProducts:
+      searchProductList,
+
+    /*
+     * -------------------------------------------------------
+     * REFRESH PRODUCTS
+     * -------------------------------------------------------
+     *
+     * Alias that can be used by seller/admin pages after
+     * creating/updating/deleting products.
+     */
+
+    refreshProducts:
+      loadProducts,
   };
+
+  /*
+   * =========================================================
+   * PROVIDER
+   * =========================================================
+   */
 
   return (
     <ProductContext.Provider
-      value={{
-        /*
-         * Current live products.
-         */
-        products,
-
-        /*
-         * Loading state.
-         */
-        loading,
-
-        /*
-         * Error state.
-         */
-        error,
-
-        /*
-         * Product management.
-         */
-        addProduct,
-        updateProduct,
-        deleteProduct,
-
-        /*
-         * Individual product.
-         */
-        getProduct,
-
-        /*
-         * Seller products.
-         */
-        getSellerProducts,
-
-        /*
-         * Reload all products.
-         */
-        getAllProducts: loadProducts,
-
-        /*
-         * Category.
-         */
-        getCategoryProducts,
-
-        /*
-         * Category + subcategory.
-         */
-        getCategoryAndSubcategoryProducts,
-
-        /*
-         * Subcategory.
-         */
-        getSubcategoryProducts,
-
-        /*
-         * Search.
-         */
-        searchProducts:
-          searchProductList,
-      }}
+      value={contextValue}
     >
       {children}
     </ProductContext.Provider>
   );
 }
 
+/*
+ * ===========================================================
+ * USE PRODUCTS HOOK
+ * ===========================================================
+ */
+
 export function useProducts() {
-  return useContext(ProductContext);
+  const context =
+    useContext(ProductContext);
+
+  if (!context) {
+    throw new Error(
+      "useProducts must be used inside a ProductProvider"
+    );
+  }
+
+  return context;
 }

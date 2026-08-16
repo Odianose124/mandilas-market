@@ -1,12 +1,12 @@
 package com.mandilas.market.controller;
 
-import org.springframework.security.core.Authentication;
-
 import com.mandilas.market.model.Product;
 import com.mandilas.market.service.CloudinaryService;
 import com.mandilas.market.service.ProductService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,41 +27,54 @@ public class ProductController {
             ProductService productService,
             CloudinaryService cloudinaryService
     ) {
-        this.productService = productService;
-        this.cloudinaryService = cloudinaryService;
+
+        this.productService =
+                productService;
+
+        this.cloudinaryService =
+                cloudinaryService;
     }
 
-    // =========================
+    // =========================================================
     // GET ALL PRODUCTS
-    // =========================
+    // =========================================================
 
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
+    public ResponseEntity<List<Product>>
+    getAllProducts() {
 
         return ResponseEntity.ok(
                 productService.getAllProducts()
         );
     }
 
-    // =========================
+    // =========================================================
     // GET PRODUCT BY ID
-    // =========================
+    // =========================================================
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(
+    public ResponseEntity<Product>
+    getProductById(
             @PathVariable Long id
     ) {
 
-        return productService.getProductById(id)
+        return productService
+                .getProductById(id)
                 .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(
+                        ResponseEntity
+                                .notFound()
+                                .build()
+                );
     }
 
-    // =========================
+    // =========================================================
     // CREATE PRODUCT
-    // =========================
+    // =========================================================
 
-    @PostMapping(consumes = "multipart/form-data")
+    @PostMapping(
+            consumes = "multipart/form-data"
+    )
     public ResponseEntity<?> createProduct(
 
             @RequestParam("name")
@@ -76,8 +89,23 @@ public class ProductController {
             @RequestParam("stock")
             int stock,
 
+            // =================================================
+            // DEPARTMENT
+            // =================================================
+
+            @RequestParam("department")
+            String department,
+
+            // =================================================
+            // CATEGORY
+            // =================================================
+
             @RequestParam("category")
             String category,
+
+            // =================================================
+            // SUBCATEGORY
+            // =================================================
 
             @RequestParam(
                     value = "subcategory",
@@ -118,8 +146,7 @@ public class ProductController {
 
             @RequestParam(
                     value = "status",
-                    required = false,
-                    defaultValue = "In Stock"
+                    required = false
             )
             String status,
 
@@ -128,15 +155,6 @@ public class ProductController {
                     required = false
             )
             String specifications,
-
-            @RequestParam("sellerEmail")
-            String sellerEmail,
-
-            @RequestParam(
-                    value = "sellerName",
-                    required = false
-            )
-            String sellerName,
 
             @RequestParam(
                     value = "images",
@@ -148,221 +166,609 @@ public class ProductController {
                     value = "video",
                     required = false
             )
-            MultipartFile video
+            MultipartFile video,
+
+            Authentication authentication
     ) {
 
         try {
 
-            Product product = new Product();
+            // =================================================
+            // AUTHENTICATION
+            // =================================================
 
-            // Product information
+            if (
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.UNAUTHORIZED
+                        )
+                        .body(
+                                "Authentication is required"
+                        );
+            }
+
+            String authenticatedSellerEmail =
+                    authentication.getName();
+
+            Product product =
+                    new Product();
+
+            // =================================================
+            // PRODUCT INFORMATION
+            // =================================================
+
             product.setName(name);
-            product.setDescription(description);
+
+            product.setDescription(
+                    description
+            );
+
             product.setPrice(price);
+
             product.setStock(stock);
 
-            // Category
-            product.setCategory(category);
-            product.setSubcategory(subcategory);
+            // =================================================
+            // DEPARTMENT
+            // =================================================
 
-            // Other product information
-            product.setBrand(brand);
-            product.setSku(sku);
-            product.setDiscountPrice(discountPrice);
-            product.setWeight(weight);
-            product.setDeliveryTime(deliveryTime);
-            product.setStatus(status);
-            product.setSpecifications(specifications);
+            product.setDepartment(
+                    department
+            );
 
-            // Seller information
-            product.setSellerEmail(sellerEmail);
-            product.setSellerName(sellerName);
+            // =================================================
+            // CATEGORY
+            // =================================================
 
-            // =========================
-            // UPLOAD PRODUCT IMAGE
-            // =========================
+            product.setCategory(
+                    category
+            );
 
-            if (images != null && images.length > 0) {
+            // =================================================
+            // SUBCATEGORY
+            // =================================================
 
-                for (MultipartFile image : images) {
+            product.setSubcategory(
+                    subcategory
+            );
 
-                    if (image != null && !image.isEmpty()) {
+            // =================================================
+            // ADDITIONAL INFORMATION
+            // =================================================
+
+            product.setBrand(
+                    brand
+            );
+
+            product.setSku(
+                    sku
+            );
+
+            product.setDiscountPrice(
+                    discountPrice
+            );
+
+            product.setWeight(
+                    weight
+            );
+
+            product.setDeliveryTime(
+                    deliveryTime
+            );
+
+            product.setStatus(
+                    status
+            );
+
+            product.setSpecifications(
+                    specifications
+            );
+
+            // =================================================
+            // SELLER
+            // =================================================
+
+            product.setSellerEmail(
+                    authenticatedSellerEmail
+            );
+
+            // =================================================
+            // IMAGE
+            // =================================================
+
+            if (
+                    images != null &&
+                    images.length > 0
+            ) {
+
+                for (
+                        MultipartFile image :
+                        images
+                ) {
+
+                    if (
+                            image != null &&
+                            !image.isEmpty()
+                    ) {
 
                         String imageUrl =
-                                cloudinaryService.uploadImage(image);
+                                cloudinaryService
+                                        .uploadImage(
+                                                image
+                                        );
 
-                        product.setImageUrl(imageUrl);
+                        product.setImageUrl(
+                                imageUrl
+                        );
 
-                        /*
-                         * Product currently stores
-                         * one main image.
-                         */
                         break;
                     }
                 }
             }
 
-            // =========================
-            // UPLOAD PRODUCT VIDEO
-            // =========================
+            // =================================================
+            // VIDEO
+            // =================================================
 
-            if (video != null && !video.isEmpty()) {
+            if (
+                    video != null &&
+                    !video.isEmpty()
+            ) {
 
                 String videoUrl =
-                        cloudinaryService.uploadVideo(video);
+                        cloudinaryService
+                                .uploadVideo(
+                                        video
+                                );
 
-                product.setVideoUrl(videoUrl);
+                product.setVideoUrl(
+                        videoUrl
+                );
             }
 
-            // =========================
-            // SAVE PRODUCT
-            // =========================
+            // =================================================
+            // SAVE
+            // =================================================
 
             Product savedProduct =
-                    productService.createProduct(product);
+                    productService
+                            .createProduct(
+                                    product
+                            );
 
-            return ResponseEntity.ok(savedProduct);
+            return ResponseEntity
+                    .status(
+                            HttpStatus.CREATED
+                    )
+                    .body(
+                            savedProduct
+                    );
 
-        } catch (Exception e) {
+        } catch (
+                RuntimeException e
+        ) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            e.getMessage()
+                    );
+
+        } catch (
+                Exception e
+        ) {
 
             e.printStackTrace();
 
             return ResponseEntity
                     .internalServerError()
                     .body(
-                            "Product upload failed: "
-                                    + e.getMessage()
+                            "Product upload failed"
                     );
         }
     }
 
-    // =========================
+    // =========================================================
     // UPDATE PRODUCT
-    // =========================
+    // =========================================================
 
     @PutMapping("/{id}")
-    public ResponseEntity<Product> updateProduct(
+    public ResponseEntity<?> updateProduct(
+
             @PathVariable Long id,
-            @RequestBody Product product
+
+            @RequestBody Product product,
+
+            Authentication authentication
     ) {
 
         try {
+
+            if (
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.UNAUTHORIZED
+                        )
+                        .body(
+                                "Authentication is required"
+                        );
+            }
+
+            String authenticatedSellerEmail =
+                    authentication.getName();
 
             Product updatedProduct =
                     productService.updateProduct(
                             id,
-                            product
+                            product,
+                            authenticatedSellerEmail
                     );
 
-            return ResponseEntity.ok(updatedProduct);
+            return ResponseEntity.ok(
+                    updatedProduct
+            );
 
-        } catch (RuntimeException e) {
+        } catch (
+                RuntimeException e
+        ) {
+
+            String message =
+                    e.getMessage();
+
+            if (
+                    message != null &&
+                    message
+                            .toLowerCase()
+                            .contains(
+                                    "not authorized"
+                            )
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.FORBIDDEN
+                        )
+                        .body(message);
+            }
+
+            if (
+                    message != null &&
+                    message
+                            .toLowerCase()
+                            .contains(
+                                    "not found"
+                            )
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.NOT_FOUND
+                        )
+                        .body(message);
+            }
 
             return ResponseEntity
-                    .notFound()
-                    .build();
+                    .badRequest()
+                    .body(message);
+
+        } catch (
+                Exception e
+        ) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            "Failed to update product"
+                    );
         }
     }
 
-    // =========================
+    // =========================================================
     // DELETE PRODUCT
-    // =========================
+    // =========================================================
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(
-            @PathVariable Long id
+    public ResponseEntity<?> deleteProduct(
+
+            @PathVariable Long id,
+
+            Authentication authentication
     ) {
 
         try {
 
-            productService.deleteProduct(id);
+            if (
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.UNAUTHORIZED
+                        )
+                        .body(
+                                "Authentication is required"
+                        );
+            }
+
+            String authenticatedSellerEmail =
+                    authentication.getName();
+
+            productService.deleteProduct(
+                    id,
+                    authenticatedSellerEmail
+            );
 
             return ResponseEntity
                     .noContent()
                     .build();
 
-        } catch (RuntimeException e) {
+        } catch (
+                RuntimeException e
+        ) {
+
+            String message =
+                    e.getMessage();
+
+            if (
+                    message != null &&
+                    message
+                            .toLowerCase()
+                            .contains(
+                                    "not authorized"
+                            )
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.FORBIDDEN
+                        )
+                        .body(message);
+            }
+
+            if (
+                    message != null &&
+                    message
+                            .toLowerCase()
+                            .contains(
+                                    "not found"
+                            )
+            ) {
+
+                return ResponseEntity
+                        .status(
+                                HttpStatus.NOT_FOUND
+                        )
+                        .body(message);
+            }
 
             return ResponseEntity
-                    .notFound()
-                    .build();
+                    .badRequest()
+                    .body(message);
+
+        } catch (
+                Exception e
+        ) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            "Failed to delete product"
+                    );
         }
     }
 
-    // =========================
+    // =========================================================
     // SELLER PRODUCTS
-    // =========================
+    // =========================================================
 
-    @GetMapping("/seller") public ResponseEntity<List<Product>> getSellerProducts(Authentication authentication) { if (authentication == null || authentication.getName() == null) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); } return ResponseEntity.ok(productService.getProductsBySeller(authentication.getName())); }
+    @GetMapping("/seller")
+    public ResponseEntity<?> getSellerProducts(
+            Authentication authentication
+    ) {
 
-    // =========================
-    // PRODUCTS BY CATEGORY
-    // =========================
+        if (
+                authentication == null ||
+                authentication.getName() == null ||
+                authentication.getName().isBlank()
+        ) {
 
-    @GetMapping("/category/{category}")
-    public ResponseEntity<List<Product>> getProductsByCategory(
+            return ResponseEntity
+                    .status(
+                            HttpStatus.UNAUTHORIZED
+                    )
+                    .body(
+                            "Authentication is required"
+                    );
+        }
+
+        return ResponseEntity.ok(
+                productService
+                        .getProductsBySeller(
+                                authentication
+                                        .getName()
+                        )
+        );
+    }
+
+    // =========================================================
+    // PRODUCTS BY DEPARTMENT
+    // =========================================================
+
+    @GetMapping("/department/{department}")
+    public ResponseEntity<List<Product>>
+    getProductsByDepartment(
+
+            @PathVariable String department
+    ) {
+
+        return ResponseEntity.ok(
+                productService
+                        .getProductsByDepartment(
+                                department
+                        )
+        );
+    }
+
+    // =========================================================
+    // PRODUCTS BY DEPARTMENT + CATEGORY
+    // =========================================================
+
+    @GetMapping(
+            "/department/{department}/category/{category}"
+    )
+    public ResponseEntity<List<Product>>
+    getProductsByDepartmentAndCategory(
+
+            @PathVariable String department,
+
             @PathVariable String category
     ) {
 
         return ResponseEntity.ok(
-                productService.getProductsByCategory(
-                        category
-                )
+                productService
+                        .getProductsByDepartmentAndCategory(
+                                department,
+                                category
+                        )
         );
     }
 
-    // =========================
-    // PRODUCTS BY CATEGORY
-    // AND SUBCATEGORY
-    // =========================
+    // =========================================================
+    // PRODUCTS BY DEPARTMENT + CATEGORY + SUBCATEGORY
+    // =========================================================
 
     @GetMapping(
-            "/category/{category}/subcategory/{subcategory}"
+            "/department/{department}/category/{category}/subcategory/{subcategory}"
     )
-    public ResponseEntity<List<Product>> getProductsByCategoryAndSubcategory(
+    public ResponseEntity<List<Product>>
+    getProductsByDepartmentAndCategoryAndSubcategory(
+
+            @PathVariable String department,
 
             @PathVariable String category,
 
             @PathVariable String subcategory
-
     ) {
 
         return ResponseEntity.ok(
-                productService.getProductsByCategoryAndSubcategory(
-                        category,
-                        subcategory
-                )
+                productService
+                        .getProductsByDepartmentAndCategoryAndSubcategory(
+                                department,
+                                category,
+                                subcategory
+                        )
         );
     }
 
-    // =========================
-    // PRODUCTS BY SUBCATEGORY
-    // =========================
+    // =========================================================
+    // PRODUCTS BY CATEGORY
+    // =========================================================
 
-    @GetMapping("/subcategory/{subcategory}")
-    public ResponseEntity<List<Product>> getProductsBySubcategory(
+    @GetMapping("/category/{category}")
+    public ResponseEntity<List<Product>>
+    getProductsByCategory(
+
+            @PathVariable String category
+    ) {
+
+        return ResponseEntity.ok(
+                productService
+                        .getProductsByCategory(
+                                category
+                        )
+        );
+    }
+
+    // =========================================================
+    // PRODUCTS BY CATEGORY + SUBCATEGORY
+    // =========================================================
+
+    @GetMapping(
+            "/category/{category}/subcategory/{subcategory}"
+    )
+    public ResponseEntity<List<Product>>
+    getProductsByCategoryAndSubcategory(
+
+            @PathVariable String category,
+
             @PathVariable String subcategory
     ) {
 
         return ResponseEntity.ok(
-                productService.getProductsBySubcategory(
-                        subcategory
-                )
+                productService
+                        .getProductsByCategoryAndSubcategory(
+                                category,
+                                subcategory
+                        )
         );
     }
 
-    // =========================
+    // =========================================================
+    // PRODUCTS BY SUBCATEGORY
+    // =========================================================
+
+    @GetMapping(
+            "/subcategory/{subcategory}"
+    )
+    public ResponseEntity<List<Product>>
+    getProductsBySubcategory(
+
+            @PathVariable String subcategory
+    ) {
+
+        return ResponseEntity.ok(
+                productService
+                        .getProductsBySubcategory(
+                                subcategory
+                        )
+        );
+    }
+
+    // =========================================================
     // SEARCH PRODUCTS
-    // =========================
+    // =========================================================
+    //
+    // Example:
+    //
+    // GET /api/products/search?name=shirt
+    //
+    // Searches:
+    // name
+    // department
+    // category
+    // subcategory
+    // brand
+    // description
+    //
+    // =========================================================
 
     @GetMapping("/search")
-    public ResponseEntity<List<Product>> searchProducts(
+    public ResponseEntity<List<Product>>
+    searchProducts(
+
             @RequestParam String name
     ) {
 
         return ResponseEntity.ok(
-                productService.searchProducts(name)
+                productService
+                        .searchProducts(
+                                name
+                        )
         );
     }
 }
-
