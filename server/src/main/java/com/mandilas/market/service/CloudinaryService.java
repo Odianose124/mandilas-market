@@ -13,41 +13,101 @@ public class CloudinaryService {
 
     private final Cloudinary cloudinary;
 
-    public CloudinaryService(Cloudinary cloudinary) {
+    public CloudinaryService(
+            Cloudinary cloudinary
+    ) {
         this.cloudinary = cloudinary;
     }
 
-    public String uploadImage(MultipartFile file) throws IOException {
 
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Image file is required");
+    // =========================================================
+    // UPLOAD IMAGE
+    // =========================================================
+
+    public String uploadImage(
+            MultipartFile file
+    ) throws IOException {
+
+        if (
+                file == null ||
+                file.isEmpty()
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Image file is required"
+            );
         }
 
-        Map<?, ?> result = cloudinary.uploader().upload(
-                file.getBytes(),
-                ObjectUtils.asMap(
-                        "resource_type", "image",
-                        "folder", "mandilas-market/products/images"
-                )
-        );
+        Map<?, ?> result =
+                cloudinary
+                        .uploader()
+                        .upload(
+                                file.getBytes(),
+                                ObjectUtils.asMap(
+                                        "resource_type",
+                                        "image",
 
-        return result.get("secure_url").toString();
+                                        "folder",
+                                        "mandilas-market/products/images"
+                                )
+                        );
+
+        Object secureUrl =
+                result.get("secure_url");
+
+        if (secureUrl == null) {
+
+            throw new IOException(
+                    "Cloudinary did not return an image URL"
+            );
+        }
+
+        return secureUrl.toString();
     }
 
-    public String uploadVideo(MultipartFile file) throws IOException {
 
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Video file is required");
+    // =========================================================
+    // UPLOAD VIDEO
+    // =========================================================
+
+    public String uploadVideo(
+            MultipartFile file
+    ) throws IOException {
+
+        if (
+                file == null ||
+                file.isEmpty()
+        ) {
+
+            throw new IllegalArgumentException(
+                    "Video file is required"
+            );
         }
 
-        Map<?, ?> result = cloudinary.uploader().upload(
-                file.getBytes(),
-                ObjectUtils.asMap(
-                        "resource_type", "video",
-                        "folder", "mandilas-market/products/videos"
-                )
-        );
+        Map<?, ?> result =
+                cloudinary
+                        .uploader()
+                        .upload(
+                                file.getBytes(),
+                                ObjectUtils.asMap(
+                                        "resource_type",
+                                        "video",
 
-        return result.get("secure_url").toString();
+                                        "folder",
+                                        "mandilas-market/products/videos"
+                                )
+                        );
+
+        Object secureUrl =
+                result.get("secure_url");
+
+        if (secureUrl == null) {
+
+            throw new IOException(
+                    "Cloudinary did not return a video URL"
+            );
+        }
+
+        return secureUrl.toString();
     }
 }

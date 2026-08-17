@@ -2,6 +2,7 @@ package com.mandilas.market.service;
 
 import com.mandilas.market.model.Product;
 import com.mandilas.market.repository.ProductRepository;
+
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,8 +16,10 @@ public class ProductService {
     public ProductService(
             ProductRepository productRepository
     ) {
-        this.productRepository = productRepository;
+        this.productRepository =
+                productRepository;
     }
+
 
     // =========================================================
     // GET ALL PRODUCTS
@@ -26,6 +29,7 @@ public class ProductService {
 
         return productRepository.findAll();
     }
+
 
     // =========================================================
     // GET PRODUCT BY ID
@@ -37,6 +41,7 @@ public class ProductService {
 
         return productRepository.findById(id);
     }
+
 
     // =========================================================
     // CREATE PRODUCT
@@ -64,6 +69,40 @@ public class ProductService {
         }
 
         if (
+                product.getName() == null ||
+                product.getName().isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Product name is required"
+            );
+        }
+
+        if (
+                product.getDescription() == null ||
+                product.getDescription().isBlank()
+        ) {
+
+            throw new RuntimeException(
+                    "Product description is required"
+            );
+        }
+
+        if (product.getPrice() < 0) {
+
+            throw new RuntimeException(
+                    "Product price cannot be negative"
+            );
+        }
+
+        if (product.getStock() < 0) {
+
+            throw new RuntimeException(
+                    "Product stock cannot be negative"
+            );
+        }
+
+        if (
                 product.getDepartment() == null ||
                 product.getDepartment().isBlank()
         ) {
@@ -83,8 +122,29 @@ public class ProductService {
             );
         }
 
+        /*
+         * Make sure the primary image is also present
+         * inside the complete image list.
+         */
+        if (
+                product.getImageUrl() != null &&
+                !product.getImageUrl().isBlank()
+        ) {
+
+            if (
+                    product.getImageUrls() == null ||
+                    product.getImageUrls().isEmpty()
+            ) {
+
+                product.addImageUrl(
+                        product.getImageUrl()
+                );
+            }
+        }
+
         return productRepository.save(product);
     }
+
 
     // =========================================================
     // UPDATE PRODUCT
@@ -116,6 +176,7 @@ public class ProductService {
                                         )
                         );
 
+
         // =====================================================
         // OWNERSHIP CHECK
         // =====================================================
@@ -134,12 +195,14 @@ public class ProductService {
             );
         }
 
+
         if (updatedProduct == null) {
 
             throw new RuntimeException(
                     "Updated product data is required"
             );
         }
+
 
         // =====================================================
         // PRODUCT INFORMATION
@@ -161,29 +224,23 @@ public class ProductService {
                 updatedProduct.getStock()
         );
 
+
         // =====================================================
-        // DEPARTMENT
+        // CLASSIFICATION
         // =====================================================
 
         existingProduct.setDepartment(
                 updatedProduct.getDepartment()
         );
 
-        // =====================================================
-        // CATEGORY
-        // =====================================================
-
         existingProduct.setCategory(
                 updatedProduct.getCategory()
         );
 
-        // =====================================================
-        // SUBCATEGORY
-        // =====================================================
-
         existingProduct.setSubcategory(
                 updatedProduct.getSubcategory()
         );
+
 
         // =====================================================
         // ADDITIONAL INFORMATION
@@ -217,14 +274,10 @@ public class ProductService {
                 updatedProduct.getSpecifications()
         );
 
-        // =====================================================
-        // MEDIA
-        // =====================================================
 
-        /*
-         * Only replace the image URL if the frontend actually
-         * provides a new value.
-         */
+        // =====================================================
+        // PRIMARY IMAGE
+        // =====================================================
 
         if (
                 updatedProduct.getImageUrl() != null &&
@@ -236,10 +289,27 @@ public class ProductService {
             );
         }
 
-        /*
-         * Only replace the video URL if the frontend actually
-         * provides a new value.
-         */
+
+        // =====================================================
+        // MULTIPLE IMAGES
+        // =====================================================
+
+        if (
+                updatedProduct.getImageUrls() != null &&
+                !updatedProduct
+                        .getImageUrls()
+                        .isEmpty()
+        ) {
+
+            existingProduct.setImageUrls(
+                    updatedProduct.getImageUrls()
+            );
+        }
+
+
+        // =====================================================
+        // VIDEO
+        // =====================================================
 
         if (
                 updatedProduct.getVideoUrl() != null &&
@@ -251,23 +321,17 @@ public class ProductService {
             );
         }
 
+
         /*
-         * DO NOT copy:
-         *
-         * sellerEmail
-         * sellerName
-         * id
-         * createdAt
-         *
-         * from the frontend.
-         *
-         * Product ownership remains unchanged.
+         * sellerEmail, sellerName, id and createdAt are
+         * deliberately not copied from frontend data.
          */
 
         return productRepository.save(
                 existingProduct
         );
     }
+
 
     // =========================================================
     // DELETE PRODUCT
@@ -298,6 +362,7 @@ public class ProductService {
                                         )
                         );
 
+
         // =====================================================
         // OWNERSHIP CHECK
         // =====================================================
@@ -320,6 +385,7 @@ public class ProductService {
                 existingProduct
         );
     }
+
 
     // =========================================================
     // GET SELLER PRODUCTS
@@ -345,8 +411,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY DEPARTMENT
+    // DEPARTMENT
     // =========================================================
 
     public List<Product> getProductsByDepartment(
@@ -359,8 +426,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY DEPARTMENT + CATEGORY
+    // DEPARTMENT + CATEGORY
     // =========================================================
 
     public List<Product>
@@ -376,8 +444,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY DEPARTMENT + CATEGORY + SUBCATEGORY
+    // DEPARTMENT + CATEGORY + SUBCATEGORY
     // =========================================================
 
     public List<Product>
@@ -395,8 +464,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY CATEGORY
+    // CATEGORY
     // =========================================================
 
     public List<Product> getProductsByCategory(
@@ -409,8 +479,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY CATEGORY + SUBCATEGORY
+    // CATEGORY + SUBCATEGORY
     // =========================================================
 
     public List<Product>
@@ -426,8 +497,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // GET PRODUCTS BY SUBCATEGORY
+    // SUBCATEGORY
     // =========================================================
 
     public List<Product> getProductsBySubcategory(
@@ -440,19 +512,9 @@ public class ProductService {
                 );
     }
 
+
     // =========================================================
-    // SEARCH PRODUCTS
-    // =========================================================
-    //
-    // Searches:
-    //
-    // Product name
-    // Department
-    // Category
-    // Subcategory
-    // Brand
-    // Description
-    //
+    // SEARCH
     // =========================================================
 
     public List<Product> searchProducts(
@@ -464,8 +526,7 @@ public class ProductService {
                 searchTerm.trim().isEmpty()
         ) {
 
-            return productRepository
-                    .findAll();
+            return productRepository.findAll();
         }
 
         String term =

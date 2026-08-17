@@ -4,6 +4,7 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -88,32 +89,33 @@ public class Product {
     /*
      * Primary/main product image.
      *
-     * This is kept for compatibility with the existing frontend.
+     * This is the image the marketplace can use as the
+     * default product thumbnail.
      */
     @Column(length = 2000)
     private String imageUrl;
 
 
     /*
-     * ALL product images.
+     * All product images.
      *
-     * A product can have multiple images just like Jumia/Jiji.
+     * A seller can upload multiple images just like Jumia/Jiji.
      */
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
             name = "product_images",
             joinColumns = @JoinColumn(name = "product_id")
     )
     @Column(
             name = "image_url",
-            length = 2000,
-            nullable = false
+            nullable = false,
+            length = 2000
     )
     private List<String> imageUrls = new ArrayList<>();
 
 
     /*
-     * Product video.
+     * Optional product video.
      */
     @Column(length = 2000)
     private String videoUrl;
@@ -123,6 +125,9 @@ public class Product {
     // SELLER INFORMATION
     // =========================================================
 
+    /*
+     * Seller identity comes from the authenticated JWT.
+     */
     @Column(nullable = false)
     private String sellerEmail;
 
@@ -152,12 +157,15 @@ public class Product {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
 
     // =========================================================
-    // GETTERS AND SETTERS
+    // ID
     // =========================================================
 
     public Long getId() {
@@ -168,6 +176,10 @@ public class Product {
         this.id = id;
     }
 
+
+    // =========================================================
+    // PRODUCT INFORMATION
+    // =========================================================
 
     public String getName() {
         return name;
@@ -312,7 +324,7 @@ public class Product {
 
 
     // =========================================================
-    // MAIN IMAGE
+    // PRIMARY IMAGE
     // =========================================================
 
     public String getImageUrl() {
@@ -333,12 +345,20 @@ public class Product {
     }
 
     public void setImageUrls(List<String> imageUrls) {
-        this.imageUrls = imageUrls;
+
+        this.imageUrls =
+                imageUrls != null
+                        ? imageUrls
+                        : new ArrayList<>();
     }
+
 
     public void addImageUrl(String imageUrl) {
 
-        if (imageUrl != null && !imageUrl.isBlank()) {
+        if (
+                imageUrl != null &&
+                !imageUrl.isBlank()
+        ) {
 
             if (imageUrls == null) {
                 imageUrls = new ArrayList<>();
