@@ -1,14 +1,19 @@
 package com.mandilas.market.model;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -40,57 +45,12 @@ public class Product {
     // PRODUCT CLASSIFICATION
     // =========================================================
 
-    /*
-     * Top-level product department.
-     *
-     * Examples:
-     *
-     * Fashion
-     * Electronics
-     * Phones & Tablets
-     * Home & Kitchen
-     * Beauty & Personal Care
-     */
     @Column(nullable = false, length = 255)
     private String department;
 
-
-    /*
-     * Main product category.
-     *
-     * Examples:
-     *
-     * Men's Wear
-     * Women's Wear
-     * Shoes
-     * Electronics
-     * Phones & Tablets
-     */
     @Column(nullable = false, length = 255)
     private String category;
 
-
-    /*
-     * Product subcategory.
-     *
-     * Examples:
-     *
-     * Fashion
-     *   -> Men's Wear
-     *      -> Shirts
-     *
-     * Fashion
-     *   -> Men's Wear
-     *      -> Trousers
-     *
-     * Fashion
-     *   -> Women's Wear
-     *      -> Dresses
-     *
-     * Fashion
-     *   -> Shoes
-     *      -> Sneakers
-     */
     @Column(length = 255)
     private String subcategory;
 
@@ -126,10 +86,30 @@ public class Product {
     // =========================================================
 
     /*
-     * Main product image.
+     * Primary/main product image.
+     *
+     * This is kept for compatibility with the existing frontend.
      */
     @Column(length = 2000)
     private String imageUrl;
+
+
+    /*
+     * ALL product images.
+     *
+     * A product can have multiple images just like Jumia/Jiji.
+     */
+    @ElementCollection
+    @CollectionTable(
+            name = "product_images",
+            joinColumns = @JoinColumn(name = "product_id")
+    )
+    @Column(
+            name = "image_url",
+            length = 2000,
+            nullable = false
+    )
+    private List<String> imageUrls = new ArrayList<>();
 
 
     /*
@@ -143,12 +123,8 @@ public class Product {
     // SELLER INFORMATION
     // =========================================================
 
-    /*
-     * Seller identity comes from the authenticated JWT.
-     */
     @Column(nullable = false)
     private String sellerEmail;
-
 
     @Column(length = 255)
     private String sellerName;
@@ -176,7 +152,6 @@ public class Product {
 
     @PrePersist
     protected void onCreate() {
-
         createdAt = LocalDateTime.now();
     }
 
@@ -337,7 +312,7 @@ public class Product {
 
 
     // =========================================================
-    // MEDIA
+    // MAIN IMAGE
     // =========================================================
 
     public String getImageUrl() {
@@ -348,6 +323,35 @@ public class Product {
         this.imageUrl = imageUrl;
     }
 
+
+    // =========================================================
+    // MULTIPLE IMAGES
+    // =========================================================
+
+    public List<String> getImageUrls() {
+        return imageUrls;
+    }
+
+    public void setImageUrls(List<String> imageUrls) {
+        this.imageUrls = imageUrls;
+    }
+
+    public void addImageUrl(String imageUrl) {
+
+        if (imageUrl != null && !imageUrl.isBlank()) {
+
+            if (imageUrls == null) {
+                imageUrls = new ArrayList<>();
+            }
+
+            imageUrls.add(imageUrl);
+        }
+    }
+
+
+    // =========================================================
+    // VIDEO
+    // =========================================================
 
     public String getVideoUrl() {
         return videoUrl;

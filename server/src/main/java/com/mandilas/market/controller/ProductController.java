@@ -277,38 +277,50 @@ public class ProductController {
             );
 
             // =================================================
-            // IMAGE
-            // =================================================
+// MULTIPLE PRODUCT IMAGES
+// =================================================
 
+if (
+        images != null &&
+        images.length > 0
+) {
+
+    for (
+            MultipartFile image :
+            images
+    ) {
+
+        if (
+                image != null &&
+                !image.isEmpty()
+        ) {
+
+            String imageUrl =
+                    cloudinaryService
+                            .uploadImage(
+                                    image
+                            );
+
+            // First uploaded image becomes
+            // the primary product image.
             if (
-                    images != null &&
-                    images.length > 0
+                    product.getImageUrl() == null ||
+                    product.getImageUrl().isBlank()
             ) {
 
-                for (
-                        MultipartFile image :
-                        images
-                ) {
-
-                    if (
-                            image != null &&
-                            !image.isEmpty()
-                    ) {
-
-                        String imageUrl =
-                                cloudinaryService
-                                        .uploadImage(
-                                                image
-                                        );
-
-                        product.setImageUrl(
-                                imageUrl
-                        );
-
-                        break;
-                    }
-                }
+                product.setImageUrl(
+                        imageUrl
+                );
             }
+
+            // Every uploaded image is also
+            // stored in the complete image list.
+            product.addImageUrl(
+                    imageUrl
+            );
+        }
+    }
+}
 
             // =================================================
             // VIDEO
