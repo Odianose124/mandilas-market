@@ -15,25 +15,14 @@ public class JwtService {
 
     private final SecretKey secretKey;
 
-    /*
-     * JWT expires after 24 hours.
-     */
     private final long expirationTime =
             1000L * 60 * 60 * 24;
 
-
-    /*
-     * =========================================================
-     * CONSTRUCTOR
-     * =========================================================
-     */
     public JwtService(
             @Value("${jwt.secret}") String secret
     ) {
 
-        if (secret == null ||
-                secret.length() < 32) {
-
+        if (secret == null || secret.length() < 32) {
             throw new IllegalArgumentException(
                     "JWT secret must be at least 32 characters long."
             );
@@ -41,85 +30,33 @@ public class JwtService {
 
         this.secretKey =
                 Keys.hmacShaKeyFor(
-                        secret.getBytes(
-                                StandardCharsets.UTF_8
-                        )
+                        secret.getBytes(StandardCharsets.UTF_8)
                 );
     }
 
-
-    /*
-     * =========================================================
-     * GENERATE TOKEN
-     * =========================================================
-     *
-     * Token contains:
-     *
-     * - email
-     * - userId
-     * - role
-     *
-     * Example payload:
-     *
-     * {
-     *     "sub": "seller@example.com",
-     *     "userId": 15,
-     *     "role": "SELLER"
-     * }
-     */
     public String generateToken(
             Long userId,
             String email,
             String role
     ) {
 
-        Date now =
-                new Date();
+        Date now = new Date();
 
         Date expiration =
                 new Date(
-                        now.getTime()
-                                + expirationTime
+                        now.getTime() + expirationTime
                 );
 
         return Jwts.builder()
-
-                /*
-                 * Subject = user's email.
-                 */
                 .subject(email)
-
-                /*
-                 * Real database user ID.
-                 */
-                .claim(
-                        "userId",
-                        userId
-                )
-
-                /*
-                 * BUYER or SELLER.
-                 */
-                .claim(
-                        "role",
-                        role
-                )
-
+                .claim("userId", userId)
+                .claim("role", role)
                 .issuedAt(now)
-
                 .expiration(expiration)
-
                 .signWith(secretKey)
-
                 .compact();
     }
 
-
-    /*
-     * =========================================================
-     * EXTRACT EMAIL
-     * =========================================================
-     */
     public String extractEmail(
             String token
     ) {
@@ -128,15 +65,6 @@ public class JwtService {
                 .getSubject();
     }
 
-
-    /*
-     * =========================================================
-     * EXTRACT USER ID
-     * =========================================================
-     *
-     * This reads the actual database user ID
-     * stored inside the JWT.
-     */
     public Long extractUserId(
             String token
     ) {
@@ -155,12 +83,6 @@ public class JwtService {
         return userId.longValue();
     }
 
-
-    /*
-     * =========================================================
-     * EXTRACT ROLE
-     * =========================================================
-     */
     public String extractRole(
             String token
     ) {
@@ -169,12 +91,6 @@ public class JwtService {
                 .get("role", String.class);
     }
 
-
-    /*
-     * =========================================================
-     * VALIDATE TOKEN
-     * =========================================================
-     */
     public boolean isValid(
             String token
     ) {
@@ -187,30 +103,28 @@ public class JwtService {
 
         } catch (Exception e) {
 
+            System.out.println(
+                    "JWT VALIDATION ERROR: "
+                            + e.getClass().getName()
+            );
+
+            System.out.println(
+                    "JWT VALIDATION MESSAGE: "
+                            + e.getMessage()
+            );
+
             return false;
         }
     }
 
-
-    /*
-     * =========================================================
-     * GET CLAIMS
-     * =========================================================
-     *
-     * This verifies the JWT signature and expiration.
-     */
     private Claims getClaims(
             String token
     ) {
 
         return Jwts.parser()
-
                 .verifyWith(secretKey)
-
                 .build()
-
                 .parseSignedClaims(token)
-
                 .getPayload();
     }
 }

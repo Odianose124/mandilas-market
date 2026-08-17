@@ -59,7 +59,7 @@ public class SecurityConfig {
                 )
 
                 // =================================================
-                // SESSION MANAGEMENT
+                // SESSION
                 // =================================================
 
                 .sessionManagement(session ->
@@ -81,6 +81,7 @@ public class SecurityConfig {
                         .requestMatchers("/")
                         .permitAll()
 
+
                         // =================================================
                         // PUBLIC AUTH
                         // =================================================
@@ -91,6 +92,67 @@ public class SecurityConfig {
                         )
                         .permitAll()
 
+
+                        // =================================================
+                        // SELLER PRODUCT CREATION
+                        // =================================================
+                        //
+                        // IMPORTANT:
+                        // Must be authenticated as SELLER.
+                        //
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/products"
+                        )
+                        .hasRole("SELLER")
+
+
+                        // =================================================
+                        // SELLER PRODUCT UPDATE
+                        // =================================================
+
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/products/*"
+                        )
+                        .hasRole("SELLER")
+
+
+                        // =================================================
+                        // SELLER PRODUCT DELETE
+                        // =================================================
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/products/*"
+                        )
+                        .hasRole("SELLER")
+
+
+                        // =================================================
+                        // SELLER PRODUCT MANAGEMENT
+                        // =================================================
+                        //
+                        // Explicitly allow:
+                        //
+                        // GET /api/products/seller
+                        //
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/products/seller"
+                        )
+                        .hasRole("SELLER")
+
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/products/seller/**"
+                        )
+                        .hasRole("SELLER")
+
+
                         // =================================================
                         // PUBLIC PRODUCT GET REQUESTS
                         // =================================================
@@ -100,57 +162,14 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 HttpMethod.GET,
-                                "/api/products/**"
+                                "/api/products",
+                                "/api/products/*",
+                                "/api/products/search",
+                                "/api/products/category/**",
+                                "/api/products/subcategory/**"
                         )
                         .permitAll()
 
-                        // =================================================
-                        // SELLER PRODUCT CREATION
-                        // =================================================
-                        //
-                        // Only authenticated sellers can create products.
-                        //
-
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/products/**"
-                        )
-                        .hasRole("SELLER")
-
-                        // =================================================
-                        // SELLER PRODUCT UPDATE
-                        // =================================================
-                        //
-                        // Authentication is required here.
-                        //
-                        // ProductService additionally verifies that
-                        // the product belongs to the authenticated seller.
-                        //
-
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/products/**"
-                        )
-                        .hasRole("SELLER")
-
-                        // =================================================
-                        // SELLER PRODUCT DELETE
-                        // =================================================
-
-                        .requestMatchers(
-                                HttpMethod.DELETE,
-                                "/api/products/**"
-                        )
-                        .hasRole("SELLER")
-
-                        // =================================================
-                        // SELLER PRODUCT MANAGEMENT
-                        // =================================================
-
-                        .requestMatchers(
-                                "/api/products/seller/**"
-                        )
-                        .hasRole("SELLER")
 
                         // =================================================
                         // SELLER STORE MANAGEMENT
@@ -161,6 +180,7 @@ public class SecurityConfig {
                         )
                         .hasRole("SELLER")
 
+
                         // =================================================
                         // PUBLIC STORE BROWSING
                         // =================================================
@@ -169,6 +189,7 @@ public class SecurityConfig {
                                 "/api/stores/**"
                         )
                         .permitAll()
+
 
                         // =================================================
                         // ORDERS
@@ -182,6 +203,7 @@ public class SecurityConfig {
                                 "SELLER"
                         )
 
+
                         // =================================================
                         // PAYSTACK
                         // =================================================
@@ -191,6 +213,7 @@ public class SecurityConfig {
                         )
                         .authenticated()
 
+
                         // =================================================
                         // EVERYTHING ELSE
                         // =================================================
@@ -198,6 +221,7 @@ public class SecurityConfig {
                         .anyRequest()
                         .authenticated()
                 )
+
 
                 // =================================================
                 // DISABLE DEFAULT LOGIN
@@ -207,6 +231,7 @@ public class SecurityConfig {
                         form.disable()
                 )
 
+
                 // =================================================
                 // DISABLE HTTP BASIC
                 // =================================================
@@ -215,13 +240,15 @@ public class SecurityConfig {
                         basic.disable()
                 )
 
+
                 // =================================================
-                // DISABLE DEFAULT LOGOUT
+                // DISABLE LOGOUT
                 // =================================================
 
                 .logout(logout ->
                         logout.disable()
                 )
+
 
                 // =================================================
                 // JWT FILTER
@@ -232,8 +259,10 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+
         return http.build();
     }
+
 
     // =========================================================
     // CORS

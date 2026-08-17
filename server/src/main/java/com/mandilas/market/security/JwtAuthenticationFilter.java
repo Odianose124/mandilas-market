@@ -2,14 +2,18 @@ package com.mandilas.market.security;
 
 import com.mandilas.market.model.User;
 import com.mandilas.market.repository.UserRepository;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+
 import org.springframework.stereotype.Component;
+
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -22,12 +26,6 @@ public class JwtAuthenticationFilter
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
-
-    /*
-     * =========================================================
-     * CONSTRUCTOR
-     * =========================================================
-     */
     public JwtAuthenticationFilter(
             JwtService jwtService,
             UserRepository userRepository
@@ -37,19 +35,6 @@ public class JwtAuthenticationFilter
         this.userRepository = userRepository;
     }
 
-
-    /*
-     * =========================================================
-     * JWT FILTER
-     * =========================================================
-     *
-     * Reads the JWT from:
-     *
-     * Authorization: Bearer <token>
-     *
-     * If the token is valid, the authenticated user is placed
-     * inside the Spring Security context.
-     */
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -57,27 +42,16 @@ public class JwtAuthenticationFilter
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        /*
-         * =====================================================
-         * GET AUTHORIZATION HEADER
-         * =====================================================
-         */
         String authorizationHeader =
                 request.getHeader("Authorization");
 
+        // =========================================================
+        // NO AUTHORIZATION HEADER
+        // =========================================================
 
-        /*
-         * =====================================================
-         * NO JWT
-         * =====================================================
-         *
-         * Continue as an unauthenticated request.
-         *
-         * Public endpoints can still work normally.
-         */
         if (
                 authorizationHeader == null ||
-                !authorizationHeader.startsWith("Bearer ")
+                authorizationHeader.isBlank()
         ) {
 
             filterChain.doFilter(
@@ -88,25 +62,29 @@ public class JwtAuthenticationFilter
             return;
         }
 
+        // =========================================================
+        // INVALID AUTHORIZATION FORMAT
+        // =========================================================
 
-        /*
-         * =====================================================
-         * EXTRACT TOKEN
-         * =====================================================
-         *
-         * Remove:
-         *
-         * Bearer
-         *
-         * and the following space.
-         */
+        if (!authorizationHeader.startsWith("Bearer ")) {
+
+            filterChain.doFilter(
+                    request,
+                    response
+            );
+
+            return;
+        }
+
+        // =========================================================
+        // EXTRACT TOKEN
+        // =========================================================
+
         String token =
-                authorizationHeader.substring(7).trim();
+                authorizationHeader
+                        .substring(7)
+                        .trim();
 
-
-        /*
-         * Do not process an empty token.
-         */
         if (token.isEmpty()) {
 
             filterChain.doFilter(
@@ -117,58 +95,80 @@ public class JwtAuthenticationFilter
             return;
         }
 
-
         try {
 
-            /*
-             * =================================================
-             * VALIDATE JWT
-             * =================================================
-             */
-            if (!jwtService.isValid(token)) {
+            // =====================================================
+            // VALIDATE TOKEN
+            // =====================================================
 
-                filterChain.doFilter(
-                        request,
-                        response
-                );
+            try {
 
-                return;
-            }
+    jwtService.extractEmail(token);
 
+} catch (Exception e) {
 
-            /*
-             * =================================================
-             * EXTRACT EMAIL
-             * =================================================
-             *
-             * The email is the JWT subject.
-             */
+    System.out.println(
+            "JWT DEBUG: TOKEN VALIDATION ERROR"
+    );
+
+    System.out.println(
+            "JWT DEBUG: "
+                    + e.getClass().getName()
+    );
+
+    System.out.println(
+            "JWT DEBUG: "
+                    + e.getMessage()
+    );
+
+    e.printStackTrace();
+
+    filterChain.doFilter(
+            request,
+            response
+    );
+
+    return;
+}
+
+            // =====================================================
+            // EXTRACT JWT DATA
+            // =====================================================
+
             String email =
                     jwtService.extractEmail(token);
 
-
-            /*
-             * =================================================
-             * EXTRACT USER ID
-             * =================================================
-             *
-             * This is the real database ID stored inside
-             * the JWT during registration/login.
-             */
             Long userId =
                     jwtService.extractUserId(token);
 
+            String jwtRole =
+                    jwtService.extractRole(token);
 
-            /*
-             * =================================================
-             * BASIC JWT DATA VALIDATION
-             * =================================================
-             */
+            System.out.println(
+                    "JWT DEBUG: email = " + email
+            );
+
+            System.out.println(
+                    "JWT DEBUG: userId = " + userId
+            );
+
+            System.out.println(
+                    "JWT DEBUG: jwtRole = " + jwtRole
+            );
+
+            // =====================================================
+            // BASIC VALIDATION
+            // =====================================================
+
             if (
                     email == null ||
-                    email.trim().isEmpty() ||
+                    email.isBlank() ||
                     userId == null
             ) {
+
+                System.out.println(
+                        "JWT DEBUG: Missing email or userId"
+                );
 
                 filterChain.doFilter(
                         request,
@@ -178,16 +178,10 @@ public class JwtAuthenticationFilter
                 return;
             }
 
+            // =====================================================
+            // FIND USER
+            // =====================================================
 
-            /*
-             * =================================================
-             * FIND USER IN DATABASE
-             * =================================================
-             *
-             * We do not trust the JWT alone.
-             *
-             * The user must still exist in the database.
-             */
             User user =
                     userRepository
                             .findByEmail(
@@ -195,33 +189,12 @@ public class JwtAuthenticationFilter
                             )
                             .orElse(null);
 
-
-            /*
-             * =================================================
-             * USER MUST EXIST
-             * =================================================
-             */
             if (user == null) {
 
-                filterChain.doFilter(
-                        request,
-                        response
+                System.out.println(
+                        "JWT DEBUG: User not found: "
+                                + email
                 );
-
-                return;
-            }
-
-
-            /*
-             * =================================================
-             * CHECK IF ALREADY AUTHENTICATED
-             * =================================================
-             */
-            if (
-                    SecurityContextHolder
-                            .getContext()
-                            .getAuthentication() != null
-            ) {
 
                 filterChain.doFilter(
                         request,
@@ -231,23 +204,28 @@ public class JwtAuthenticationFilter
                 return;
             }
 
+            // =====================================================
+            // VERIFY USER ID
+            // =====================================================
 
-            /*
-             * =================================================
-             * VERIFY DATABASE USER ID
-             * =================================================
-             *
-             * The ID inside the JWT must belong to the same
-             * database user whose email was found.
-             *
-             * This prevents a mismatched JWT from being used
-             * to access another user's store.
-             */
             if (
                     user.getId() == null ||
                     !user.getId().equals(userId)
             ) {
 
+                System.out.println(
+                        "JWT DEBUG: User ID mismatch"
+                );
+
+                System.out.println(
+                        "JWT userId = " + userId
+                );
+
+                System.out.println(
+                        "Database userId = "
+                                + user.getId()
+                );
+
                 filterChain.doFilter(
                         request,
                         response
@@ -256,95 +234,126 @@ public class JwtAuthenticationFilter
                 return;
             }
 
+            // =====================================================
+            // DATABASE ROLE
+            // =====================================================
 
-            /*
-             * =================================================
-             * GET USER ROLE
-             * =================================================
-             */
-            String role =
-                    "ROLE_" +
+            if (user.getRole() == null) {
+
+                System.out.println(
+                        "JWT DEBUG: Database user has no role"
+                );
+
+                filterChain.doFilter(
+                        request,
+                        response
+                );
+
+                return;
+            }
+
+            String databaseRole =
                     user.getRole().name();
 
+            String authority =
+                    "ROLE_" + databaseRole;
 
-            /*
-             * =================================================
-             * CREATE AUTHENTICATION
-             * =================================================
-             *
-             * Principal:
-             *
-             *     email
-             *
-             * This keeps existing code that uses:
-             *
-             *     authentication.getName()
-             *
-             * working.
-             */
-            UsernamePasswordAuthenticationToken
-                    authentication =
+            System.out.println(
+                    "JWT DEBUG: Database role = "
+                            + databaseRole
+            );
+
+            System.out.println(
+                    "JWT DEBUG: Spring authority = "
+                            + authority
+            );
+
+            // =====================================================
+            // CREATE AUTHENTICATION
+            // =====================================================
+
+            UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             email,
                             null,
                             List.of(
                                     new SimpleGrantedAuthority(
-                                            role
+                                            authority
                                     )
                             )
                     );
 
+            // =====================================================
+            // STORE USER ID
+            // =====================================================
 
-            /*
-             * =================================================
-             * STORE USER ID IN AUTHENTICATION DETAILS
-             * =================================================
-             *
-             * StoreController's /manage/me endpoints will use:
-             *
-             *     authentication.getDetails()
-             *
-             * to retrieve the authenticated user's database ID.
-             */
             authentication.setDetails(
                     userId
             );
 
+            // =====================================================
+            // SET SECURITY CONTEXT
+            // =====================================================
 
-            /*
-             * =================================================
-             * SET SECURITY CONTEXT
-             * =================================================
-             */
             SecurityContextHolder
                     .getContext()
                     .setAuthentication(
                             authentication
                     );
 
+            System.out.println(
+                    "JWT DEBUG: Authentication successful"
+            );
 
-        } catch (Exception ignored) {
+            System.out.println(
+                    "JWT DEBUG: Principal = "
+                            + email
+            );
+
+            System.out.println(
+                    "JWT DEBUG: Authority = "
+                            + authority
+            );
+
+        } catch (Exception e) {
 
             /*
-             * =================================================
-             * INVALID JWT
-             * =================================================
+             * IMPORTANT:
              *
-             * Do not expose internal JWT errors to the client.
+             * Do NOT silently ignore this anymore.
              *
-             * The request simply remains unauthenticated.
-             *
-             * Spring Security will then determine whether
-             * the requested endpoint is public or protected.
+             * We need to see exactly why the JWT
+             * authentication is failing.
              */
+
+            System.out.println(
+                    "JWT DEBUG: Authentication failed"
+            );
+
+            System.out.println(
+                    "JWT DEBUG: "
+                            + e.getClass().getName()
+            );
+
+            System.out.println(
+                    "JWT DEBUG: "
+                            + e.getMessage()
+            );
+
+            e.printStackTrace();
+
+            /*
+             * Clear any partially-created authentication.
+             */
+
+            SecurityContextHolder
+                    .clearContext();
         }
 
+        // =========================================================
+        // CONTINUE REQUEST
+        // =========================================================
 
-        /*
-         * =====================================================
-         * CONTINUE REQUEST
-         * =====================================================
-         */
         filterChain.doFilter(
                 request,
                 response
