@@ -1,17 +1,17 @@
-package com.mandilas.market.controller;
-
-import org.springframework.security.core.Authentication;
+﻿package com.mandilas.market.controller;
 
 import com.mandilas.market.model.Order;
 import com.mandilas.market.service.OrderService;
+
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*")
 public class OrderController {
 
     private final OrderService orderService;
@@ -21,7 +21,9 @@ public class OrderController {
     }
 
     /*
-     * Create a new order
+     * =========================================================
+     * CREATE A NEW ORDER
+     * =========================================================
      */
     @PostMapping
     public ResponseEntity<?> createOrder(
@@ -52,8 +54,11 @@ public class OrderController {
         }
     }
 
+
     /*
-     * Get all orders
+     * =========================================================
+     * GET ALL ORDERS
+     * =========================================================
      */
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
@@ -63,8 +68,11 @@ public class OrderController {
         );
     }
 
+
     /*
-     * Get one order
+     * =========================================================
+     * GET ONE ORDER
+     * =========================================================
      */
     @GetMapping("/{id}")
     public ResponseEntity<?> getOrderById(
@@ -85,8 +93,11 @@ public class OrderController {
         }
     }
 
+
     /*
-     * Get orders belonging to a customer
+     * =========================================================
+     * GET CUSTOMER ORDERS
+     * =========================================================
      */
     @GetMapping("/customer/{email}")
     public ResponseEntity<List<Order>> getOrdersByEmail(
@@ -98,24 +109,47 @@ public class OrderController {
         );
     }
 
+
     /*
-     * Get orders belonging to a seller.
+     * =========================================================
+     * GET SELLER ORDERS
      *
-     * The seller is identified by seller email.
+     * The seller email comes from the authenticated JWT.
+     *
+     * Frontend calls:
+     *
+     * GET /api/orders/seller
+     *
+     * No seller email needs to be placed in the URL.
+     * =========================================================
      */
-    @GetMapping("/seller") public ResponseEntity<?> getOrdersBySellerEmail(Authentication authentication) { String email = authentication != null ? authentication.getName() : null;
+    @GetMapping("/seller")
+    public ResponseEntity<?> getOrdersBySeller(
+            Authentication authentication
+    ) {
 
         try {
 
-            if (email == null || email.isBlank()) {
+            if (
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
+            ) {
 
                 return ResponseEntity
-                        .badRequest()
-                        .body("Seller email is required");
+                        .status(401)
+                        .body(
+                                "Seller authentication is required"
+                        );
             }
 
+            String sellerEmail =
+                    authentication.getName();
+
             return ResponseEntity.ok(
-                    orderService.getOrdersBySellerEmail(email)
+                    orderService.getOrdersBySellerEmail(
+                            sellerEmail
+                    )
             );
 
         } catch (RuntimeException e) {
@@ -135,8 +169,91 @@ public class OrderController {
         }
     }
 
+
     /*
-     * Get orders by order status
+     * =========================================================
+     * SELLER ORDERS COMPATIBILITY ROUTE
+     *
+     * Supports the old frontend request:
+     *
+     * GET /api/orders/seller/{email}
+     *
+     * This is kept temporarily so an older frontend build
+     * does not immediately break.
+     *
+     * The authenticated seller MUST match the email in
+     * the URL.
+     * =========================================================
+     */
+    @GetMapping("/seller/{email}")
+    public ResponseEntity<?> getOrdersBySellerEmail(
+            @PathVariable String email,
+            Authentication authentication
+    ) {
+
+        try {
+
+            if (
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
+            ) {
+
+                return ResponseEntity
+                        .status(401)
+                        .body(
+                                "Seller authentication is required"
+                        );
+            }
+
+            String authenticatedEmail =
+                    authentication.getName();
+
+            /*
+             * Prevent a seller from requesting another
+             * seller's orders.
+             */
+            if (
+                    !authenticatedEmail
+                            .equalsIgnoreCase(email)
+            ) {
+
+                return ResponseEntity
+                        .status(403)
+                        .body(
+                                "You are not authorized to access "
+                                        + "another seller's orders."
+                        );
+            }
+
+            return ResponseEntity.ok(
+                    orderService.getOrdersBySellerEmail(
+                            authenticatedEmail
+                    )
+            );
+
+        } catch (RuntimeException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            "Failed to fetch seller orders: "
+                                    + e.getMessage()
+                    );
+        }
+    }
+
+
+    /*
+     * =========================================================
+     * GET ORDERS BY ORDER STATUS
+     * =========================================================
      */
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Order>> getOrdersByStatus(
@@ -148,8 +265,11 @@ public class OrderController {
         );
     }
 
+
     /*
-     * Get orders by payment status
+     * =========================================================
+     * GET ORDERS BY PAYMENT STATUS
+     * =========================================================
      */
     @GetMapping("/payment-status/{status}")
     public ResponseEntity<List<Order>> getOrdersByPaymentStatus(
@@ -161,8 +281,11 @@ public class OrderController {
         );
     }
 
+
     /*
-     * Update order status
+     * =========================================================
+     * UPDATE ORDER STATUS
+     * =========================================================
      */
     @PutMapping("/{id}/status")
     public ResponseEntity<?> updateOrderStatus(
@@ -187,8 +310,11 @@ public class OrderController {
         }
     }
 
+
     /*
-     * Update payment status
+     * =========================================================
+     * UPDATE PAYMENT STATUS
+     * =========================================================
      */
     @PutMapping("/{id}/payment-status")
     public ResponseEntity<?> updatePaymentStatus(
@@ -213,8 +339,11 @@ public class OrderController {
         }
     }
 
+
     /*
-     * Delete order
+     * =========================================================
+     * DELETE ORDER
+     * =========================================================
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOrder(
@@ -237,4 +366,3 @@ public class OrderController {
         }
     }
 }
-

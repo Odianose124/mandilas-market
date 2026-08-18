@@ -3,6 +3,7 @@ package com.mandilas.market.service;
 import com.mandilas.market.model.Order;
 import com.mandilas.market.model.OrderItem;
 import com.mandilas.market.repository.OrderRepository;
+
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,23 +17,34 @@ public class OrderService {
         this.orderRepository = orderRepository;
     }
 
+
     /*
-     * Create a new order.
+     * =========================================================
+     * CREATE A NEW ORDER
+     * =========================================================
      */
     public Order createOrder(Order order) {
 
-        if (order.getItems() == null || order.getItems().isEmpty()) {
+        if (
+                order.getItems() == null ||
+                order.getItems().isEmpty()
+        ) {
+
             throw new RuntimeException(
                     "Order must contain at least one product"
             );
         }
 
+
         /*
-         * Make sure every OrderItem points back to this Order.
+         * Make sure every OrderItem points back to
+         * this Order.
          */
         for (OrderItem item : order.getItems()) {
+
             item.setOrder(order);
         }
+
 
         /*
          * Calculate each item's total.
@@ -40,20 +52,26 @@ public class OrderService {
         for (OrderItem item : order.getItems()) {
 
             double itemTotal =
-                    item.getPrice() * item.getQuantity();
+                    item.getPrice()
+                            * item.getQuantity();
 
             item.setTotal(itemTotal);
         }
 
+
         /*
-         * Calculate subtotal from the order items.
+         * Calculate subtotal.
          */
-        double subtotal = order.getItems()
-                .stream()
-                .mapToDouble(OrderItem::getTotal)
-                .sum();
+        double subtotal =
+                order.getItems()
+                        .stream()
+                        .mapToDouble(
+                                OrderItem::getTotal
+                        )
+                        .sum();
 
         order.setSubtotal(subtotal);
+
 
         /*
          * Calculate final order total.
@@ -64,38 +82,55 @@ public class OrderService {
 
         order.setTotal(total);
 
+
         /*
-         * Default statuses.
+         * Default payment status.
          */
-        if (order.getPaymentStatus() == null ||
-                order.getPaymentStatus().isBlank()) {
+        if (
+                order.getPaymentStatus() == null ||
+                order.getPaymentStatus().isBlank()
+        ) {
 
             order.setPaymentStatus("Pending");
         }
 
-        if (order.getOrderStatus() == null ||
-                order.getOrderStatus().isBlank()) {
+
+        /*
+         * Default order status.
+         */
+        if (
+                order.getOrderStatus() == null ||
+                order.getOrderStatus().isBlank()
+        ) {
 
             order.setOrderStatus("Pending");
         }
 
+
         return orderRepository.save(order);
     }
 
+
     /*
-     * Get all orders.
+     * =========================================================
+     * GET ALL ORDERS
+     * =========================================================
      */
     public List<Order> getAllOrders() {
 
         return orderRepository.findAll();
     }
 
+
     /*
-     * Get one order.
+     * =========================================================
+     * GET ONE ORDER
+     * =========================================================
      */
     public Order getOrderById(Long id) {
 
-        return orderRepository.findById(id)
+        return orderRepository
+                .findById(id)
                 .orElseThrow(
                         () -> new RuntimeException(
                                 "Order not found"
@@ -103,26 +138,36 @@ public class OrderService {
                 );
     }
 
+
     /*
-     * Get orders belonging to a customer.
+     * =========================================================
+     * GET CUSTOMER ORDERS
+     * =========================================================
      */
-    public List<Order> getOrdersByEmail(String email) {
+    public List<Order> getOrdersByEmail(
+            String email
+    ) {
 
         return orderRepository.findByEmail(email);
     }
 
+
     /*
-     * Get orders belonging to a seller.
+     * =========================================================
+     * GET SELLER ORDERS
      *
-     * The seller is identified by the email stored
-     * inside OrderItem.sellerEmail.
+     * Seller orders are found through
+     * OrderItem.sellerEmail.
+     * =========================================================
      */
     public List<Order> getOrdersBySellerEmail(
             String sellerEmail
     ) {
 
-        if (sellerEmail == null ||
-                sellerEmail.isBlank()) {
+        if (
+                sellerEmail == null ||
+                sellerEmail.isBlank()
+        ) {
 
             throw new RuntimeException(
                     "Seller email is required"
@@ -135,66 +180,91 @@ public class OrderService {
                 );
     }
 
+
     /*
-     * Get orders by order status.
+     * =========================================================
+     * GET ORDERS BY ORDER STATUS
+     * =========================================================
      */
     public List<Order> getOrdersByStatus(
             String orderStatus
     ) {
 
-        return orderRepository.findByOrderStatus(
-                orderStatus
-        );
+        return orderRepository
+                .findByOrderStatus(
+                        orderStatus
+                );
     }
 
+
     /*
-     * Get orders by payment status.
+     * =========================================================
+     * GET ORDERS BY PAYMENT STATUS
+     * =========================================================
      */
     public List<Order> getOrdersByPaymentStatus(
             String paymentStatus
     ) {
 
-        return orderRepository.findByPaymentStatus(
-                paymentStatus
-        );
+        return orderRepository
+                .findByPaymentStatus(
+                        paymentStatus
+                );
     }
 
+
     /*
-     * Update order status.
+     * =========================================================
+     * UPDATE ORDER STATUS
+     * =========================================================
      */
     public Order updateOrderStatus(
             Long id,
             String orderStatus
     ) {
 
-        Order order = getOrderById(id);
+        Order order =
+                getOrderById(id);
 
-        order.setOrderStatus(orderStatus);
+        order.setOrderStatus(
+                orderStatus
+        );
 
         return orderRepository.save(order);
     }
 
+
     /*
-     * Update payment status.
+     * =========================================================
+     * UPDATE PAYMENT STATUS
+     * =========================================================
      */
     public Order updatePaymentStatus(
             Long id,
             String paymentStatus
     ) {
 
-        Order order = getOrderById(id);
+        Order order =
+                getOrderById(id);
 
-        order.setPaymentStatus(paymentStatus);
+        order.setPaymentStatus(
+                paymentStatus
+        );
 
         return orderRepository.save(order);
     }
 
+
     /*
-     * Delete an order.
+     * =========================================================
+     * DELETE ORDER
+     * =========================================================
      */
     public void deleteOrder(Long id) {
 
-        if (!orderRepository.existsById(id)) {
+        if (
+                !orderRepository.existsById(id)
+        ) {
 
             throw new RuntimeException(
                     "Order not found"

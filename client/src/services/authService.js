@@ -1,4 +1,4 @@
-const API_URL = `${import.meta.env.VITE_API_URL}/api/auth`;
+const API_URL = `${import.meta.env.VITE_API_URL}/auth`;
 
 /**
  * Register a new buyer or seller.
@@ -25,11 +25,24 @@ export async function registerUser(userData) {
     }),
   });
 
-  const data = await response.json();
+  const text = await response.text();
+
+  let data = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {
+        message: text,
+      };
+    }
+  }
 
   if (!response.ok) {
     throw new Error(
-      data.message || "Registration failed."
+      data.message ||
+        `Registration failed. Server returned ${response.status}.`
     );
   }
 
@@ -53,12 +66,24 @@ export async function loginUser(email, password) {
     }),
   });
 
-  const data = await response.json();
+  const text = await response.text();
+
+  let data = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {
+        message: text,
+      };
+    }
+  }
 
   if (!response.ok) {
     throw new Error(
       data.message ||
-        "Invalid email or password."
+        `Login failed. Server returned ${response.status}.`
     );
   }
 
