@@ -64,7 +64,7 @@ public class ProductService {
         ) {
 
             throw new RuntimeException(
-                    "Authenticated seller is required"
+                    "Seller email from mandilas-user session is required"
             );
         }
 
@@ -162,7 +162,7 @@ public class ProductService {
         ) {
 
             throw new RuntimeException(
-                    "Authenticated seller is required"
+                    "Seller email from mandilas-user session is required"
             );
         }
 
@@ -348,7 +348,7 @@ public class ProductService {
         ) {
 
             throw new RuntimeException(
-                    "Authenticated seller is required"
+                    "Seller email from mandilas-user session is required"
             );
         }
 
@@ -401,7 +401,7 @@ public class ProductService {
         ) {
 
             throw new RuntimeException(
-                    "Authenticated seller is required"
+                    "Seller email from mandilas-user session is required"
             );
         }
 

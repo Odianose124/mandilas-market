@@ -1,23 +1,40 @@
 import API_URL from "./api";
 
+
 /*
  * =========================================================
- * AUTH HEADERS
+ * GET SIMPLE USER SESSION
+ * =========================================================
+ *
+ * No JWT.
+ *
+ * Seller/customer identity comes from:
+ *
+ * mandilas-user
+ *
  * =========================================================
  */
-function getAuthHeaders() {
+function getSavedUser() {
 
-  const token =
-    localStorage.getItem("mandilas-token");
+  const savedUser =
+    localStorage.getItem(
+      "mandilas-user"
+    );
 
-  return token
-    ? {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      }
-    : {
-        "Content-Type": "application/json",
-      };
+  if (!savedUser) {
+    return null;
+  }
+
+  try {
+
+    return JSON.parse(
+      savedUser
+    );
+
+  } catch {
+
+    return null;
+  }
 }
 
 
@@ -35,12 +52,15 @@ export async function createOrder(order) {
         method: "POST",
 
         headers: {
-          ...getAuthHeaders(),
+          "Content-Type":
+            "application/json",
         },
 
-        body: JSON.stringify(order),
+        body:
+          JSON.stringify(order),
       }
     );
+
 
   if (!response.ok) {
 
@@ -69,12 +89,9 @@ export async function getAllOrders() {
       `${API_URL}/orders`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -103,12 +120,9 @@ export async function getOrderById(id) {
       `${API_URL}/orders/${id}`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -144,19 +158,17 @@ export async function getOrdersByEmail(
     );
   }
 
+
   const response =
     await fetch(
       `${API_URL}/orders/customer/${encodeURIComponent(
-        email
+        email.trim()
       )}`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -176,31 +188,49 @@ export async function getOrdersByEmail(
 /*
  * =========================================================
  * GET SELLER ORDERS
+ * =========================================================
  *
- * IMPORTANT:
+ * NO JWT.
+ * NO Authorization header.
  *
- * The seller email is NOT sent from the frontend.
+ * Seller email comes from:
  *
- * The backend gets the seller identity from the JWT.
+ * mandilas-user
  *
  * Request:
  *
- * GET /api/orders/seller
+ * GET /api/orders/seller?email=seller@email.com
+ *
  * =========================================================
  */
 export async function getOrdersBySellerEmail() {
 
+  const user =
+    getSavedUser();
+
+
+  const sellerEmail =
+    user?.email || "";
+
+
+  if (!sellerEmail) {
+
+    throw new Error(
+      "Please login as a seller."
+    );
+  }
+
+
   const response =
     await fetch(
-      `${API_URL}/orders/seller`,
+      `${API_URL}/orders/seller?email=${encodeURIComponent(
+        sellerEmail.trim()
+      )}`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -219,7 +249,7 @@ export async function getOrdersBySellerEmail() {
 
 /*
  * =========================================================
- * GET ORDERS BY STATUS
+ * GET ORDERS BY ORDER STATUS
  * =========================================================
  */
 export async function getOrdersByStatus(
@@ -236,19 +266,17 @@ export async function getOrdersByStatus(
     );
   }
 
+
   const response =
     await fetch(
       `${API_URL}/orders/status/${encodeURIComponent(
-        status
+        status.trim()
       )}`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -284,19 +312,17 @@ export async function getOrdersByPaymentStatus(
     );
   }
 
+
   const response =
     await fetch(
       `${API_URL}/orders/payment-status/${encodeURIComponent(
-        status
+        status.trim()
       )}`,
       {
         method: "GET",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -323,19 +349,27 @@ export async function updateOrderStatus(
   status
 ) {
 
+  if (
+    !status ||
+    !status.trim()
+  ) {
+
+    throw new Error(
+      "Order status is required"
+    );
+  }
+
+
   const response =
     await fetch(
       `${API_URL}/orders/${id}/status?status=${encodeURIComponent(
-        status
+        status.trim()
       )}`,
       {
         method: "PUT",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -362,19 +396,27 @@ export async function updatePaymentStatus(
   status
 ) {
 
+  if (
+    !status ||
+    !status.trim()
+  ) {
+
+    throw new Error(
+      "Payment status is required"
+    );
+  }
+
+
   const response =
     await fetch(
       `${API_URL}/orders/${id}/payment-status?status=${encodeURIComponent(
-        status
+        status.trim()
       )}`,
       {
         method: "PUT",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -403,12 +445,9 @@ export async function deleteOrder(id) {
       `${API_URL}/orders/${id}`,
       {
         method: "DELETE",
-
-        headers: {
-          ...getAuthHeaders(),
-        },
       }
     );
+
 
   if (!response.ok) {
 
@@ -421,6 +460,7 @@ export async function deleteOrder(id) {
     );
   }
 
+
   /*
    * DELETE may return 204 No Content.
    */
@@ -430,6 +470,7 @@ export async function deleteOrder(id) {
 
     return true;
   }
+
 
   return response.json();
 }

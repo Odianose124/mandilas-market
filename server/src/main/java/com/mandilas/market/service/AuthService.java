@@ -2,7 +2,7 @@ package com.mandilas.market.service;
 
 import com.mandilas.market.model.User;
 import com.mandilas.market.repository.UserRepository;
-import com.mandilas.market.security.JwtService;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,18 +13,17 @@ public class AuthService {
     private final UserRepository userRepository;
     private final StoreService storeService;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+
 
     public AuthService(
             UserRepository userRepository,
             StoreService storeService,
-            PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            PasswordEncoder passwordEncoder
     ) {
+
         this.userRepository = userRepository;
         this.storeService = storeService;
         this.passwordEncoder = passwordEncoder;
-        this.jwtService = jwtService;
     }
 
 
@@ -42,21 +41,12 @@ public class AuthService {
      * SELLER:
      * - Creates the seller account.
      * - Automatically creates one real store.
-     * - Generates a unique public store slug.
+     * - Store name is saved on the user.
      *
-     * No sellers, stores or products are hardcoded.
-     *
-     * The complete registration is transactional:
-     *
-     * User creation
-     *       ↓
-     * Seller store creation
-     *       ↓
-     * JWT generation
-     *
-     * If store creation fails, the user creation is
-     * rolled back as well.
+     * NO JWT.
+     * NO TOKEN.
      */
+
     @Transactional
     public RegistrationResult register(
             String firstName,
@@ -182,11 +172,6 @@ public class AuthService {
         // SELLER STORE VALIDATION
         // =====================================================
 
-        /*
-         * Sellers must provide a store name.
-         *
-         * Buyers do not need one.
-         */
         if (
                 userRole == User.Role.SELLER &&
                 (
@@ -284,9 +269,6 @@ public class AuthService {
         // SAVE USER
         // =====================================================
 
-        /*
-         * The database generates the real user ID.
-         */
         User savedUser =
                 userRepository.save(
                         user
@@ -299,16 +281,9 @@ public class AuthService {
 
         /*
          * Every seller automatically receives
-         * their own real marketplace store.
-         *
-         * StoreService handles:
-         *
-         * - seller validation
-         * - duplicate-store protection
-         * - slug generation
-         * - duplicate slug protection
-         * - database persistence
+         * their own marketplace store.
          */
+
         if (
                 savedUser.getRole() ==
                         User.Role.SELLER
@@ -322,27 +297,14 @@ public class AuthService {
 
 
         // =====================================================
-        // GENERATE JWT
-        // =====================================================
-
-        /*
-         * JWT uses the REAL database ID.
-         */
-        String token =
-                jwtService.generateToken(
-                        savedUser.getId(),
-                        savedUser.getEmail(),
-                        savedUser.getRole().name()
-                );
-
-
-        // =====================================================
         // RETURN REGISTRATION RESULT
         // =====================================================
 
+        /*
+         * NO TOKEN.
+         */
         return new RegistrationResult(
-                savedUser,
-                token
+                savedUser
         );
     }
 
@@ -401,10 +363,11 @@ public class AuthService {
                         .findByEmail(
                                 email
                         )
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Invalid email or password."
-                                )
+                        .orElseThrow(
+                                () ->
+                                        new RuntimeException(
+                                                "Invalid email or password."
+                                        )
                         );
 
 
@@ -426,24 +389,15 @@ public class AuthService {
 
 
         // =====================================================
-        // GENERATE JWT
-        // =====================================================
-
-        String token =
-                jwtService.generateToken(
-                        user.getId(),
-                        user.getEmail(),
-                        user.getRole().name()
-                );
-
-
-        // =====================================================
         // RETURN LOGIN RESULT
         // =====================================================
 
+        /*
+         * NO JWT.
+         * NO TOKEN.
+         */
         return new LoginResult(
-                user,
-                token
+                user
         );
     }
 
@@ -453,8 +407,7 @@ public class AuthService {
     // =========================================================
 
     public record RegistrationResult(
-            User user,
-            String token
+            User user
     ) {
     }
 
@@ -464,8 +417,7 @@ public class AuthService {
     // =========================================================
 
     public record LoginResult(
-            User user,
-            String token
+            User user
     ) {
     }
 }

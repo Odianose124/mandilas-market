@@ -6,6 +6,7 @@ import com.mandilas.market.service.ProductService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,26 +35,26 @@ public class ProductController {
                 cloudinaryService;
     }
 
-
     // =========================================================
     // GET ALL PRODUCTS
     // =========================================================
 
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
+    public ResponseEntity<List<Product>>
+    getAllProducts() {
 
         return ResponseEntity.ok(
                 productService.getAllProducts()
         );
     }
 
-
     // =========================================================
     // GET PRODUCT BY ID
     // =========================================================
 
     @GetMapping("/{id}")
-    public ResponseEntity<Product> getProductById(
+    public ResponseEntity<Product>
+    getProductById(
             @PathVariable Long id
     ) {
 
@@ -67,29 +68,14 @@ public class ProductController {
                 );
     }
 
-
     // =========================================================
     // CREATE PRODUCT
-    // =========================================================
-    //
-    // NO JWT
-    // NO Authentication
-    //
-    // Seller identity comes directly from:
-    //
-    // sellerEmail
-    //
-    // sent by the frontend from mandilas-user.
-    //
     // =========================================================
 
     @PostMapping(
             consumes = "multipart/form-data"
     )
     public ResponseEntity<?> createProduct(
-
-            @RequestParam("sellerEmail")
-            String sellerEmail,
 
             @RequestParam("name")
             String name,
@@ -103,11 +89,23 @@ public class ProductController {
             @RequestParam("stock")
             int stock,
 
+            // =================================================
+            // DEPARTMENT
+            // =================================================
+
             @RequestParam("department")
             String department,
 
+            // =================================================
+            // CATEGORY
+            // =================================================
+
             @RequestParam("category")
             String category,
+
+            // =================================================
+            // SUBCATEGORY
+            // =================================================
 
             @RequestParam(
                     value = "subcategory",
@@ -168,64 +166,51 @@ public class ProductController {
                     value = "video",
                     required = false
             )
-            MultipartFile video
+            MultipartFile video,
+
+            Authentication authentication
     ) {
 
         try {
 
             // =================================================
-            // SELLER VALIDATION
+            // AUTHENTICATION
             // =================================================
 
             if (
-                    sellerEmail == null ||
-                    sellerEmail.trim().isEmpty()
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
             ) {
 
                 return ResponseEntity
                         .status(
-                                HttpStatus.BAD_REQUEST
+                                HttpStatus.UNAUTHORIZED
                         )
                         .body(
-                                "Seller email is required."
+                                "Authentication is required"
                         );
             }
 
-
-            sellerEmail =
-                    sellerEmail
-                            .trim()
-                            .toLowerCase();
-
-
-            // =================================================
-            // PRODUCT
-            // =================================================
+            String authenticatedSellerEmail =
+                    authentication.getName();
 
             Product product =
                     new Product();
 
-
             // =================================================
-            // BASIC INFORMATION
+            // PRODUCT INFORMATION
             // =================================================
 
-            product.setName(
-                    name
-            );
+            product.setName(name);
 
             product.setDescription(
                     description
             );
 
-            product.setPrice(
-                    price
-            );
+            product.setPrice(price);
 
-            product.setStock(
-                    stock
-            );
-
+            product.setStock(stock);
 
             // =================================================
             // DEPARTMENT
@@ -235,7 +220,6 @@ public class ProductController {
                     department
             );
 
-
             // =================================================
             // CATEGORY
             // =================================================
@@ -244,7 +228,6 @@ public class ProductController {
                     category
             );
 
-
             // =================================================
             // SUBCATEGORY
             // =================================================
@@ -252,7 +235,6 @@ public class ProductController {
             product.setSubcategory(
                     subcategory
             );
-
 
             // =================================================
             // ADDITIONAL INFORMATION
@@ -286,77 +268,62 @@ public class ProductController {
                     specifications
             );
 
-
             // =================================================
             // SELLER
             // =================================================
-            //
-            // No Authentication object.
-            // No JWT.
-            //
-            // Seller is identified by email.
-            //
 
             product.setSellerEmail(
-                    sellerEmail
+                    authenticatedSellerEmail
             );
 
-
             // =================================================
-            // PRODUCT IMAGES
-            // =================================================
+// MULTIPLE PRODUCT IMAGES
+// =================================================
 
+if (
+        images != null &&
+        images.length > 0
+) {
+
+    for (
+            MultipartFile image :
+            images
+    ) {
+
+        if (
+                image != null &&
+                !image.isEmpty()
+        ) {
+
+            String imageUrl =
+                    cloudinaryService
+                            .uploadImage(
+                                    image
+                            );
+
+            // First uploaded image becomes
+            // the primary product image.
             if (
-                    images != null &&
-                    images.length > 0
+                    product.getImageUrl() == null ||
+                    product.getImageUrl().isBlank()
             ) {
 
-                for (
-                        MultipartFile image :
-                        images
-                ) {
-
-                    if (
-                            image != null &&
-                            !image.isEmpty()
-                    ) {
-
-                        String imageUrl =
-                                cloudinaryService
-                                        .uploadImage(
-                                                image
-                                        );
-
-
-                        /*
-                         * First uploaded image
-                         * becomes the primary image.
-                         */
-                        if (
-                                product.getImageUrl() == null ||
-                                product.getImageUrl().isBlank()
-                        ) {
-
-                            product.setImageUrl(
-                                    imageUrl
-                            );
-                        }
-
-
-                        /*
-                         * Store every uploaded image
-                         * in the complete image list.
-                         */
-                        product.addImageUrl(
-                                imageUrl
-                        );
-                    }
-                }
+                product.setImageUrl(
+                        imageUrl
+                );
             }
 
+            // Every uploaded image is also
+            // stored in the complete image list.
+            product.addImageUrl(
+                    imageUrl
+            );
+        }
+    }
+}
 
             // =================================================
-            // PRODUCT VIDEO
+            // VIDEO
             // =================================================
 
             if (
@@ -370,22 +337,20 @@ public class ProductController {
                                         video
                                 );
 
-
                 product.setVideoUrl(
                         videoUrl
                 );
             }
 
-
             // =================================================
-            // SAVE PRODUCT
+            // SAVE
             // =================================================
 
             Product savedProduct =
-                    productService.createProduct(
-                            product
-                    );
-
+                    productService
+                            .createProduct(
+                                    product
+                            );
 
             return ResponseEntity
                     .status(
@@ -394,7 +359,6 @@ public class ProductController {
                     .body(
                             savedProduct
                     );
-
 
         } catch (
                 RuntimeException e
@@ -405,7 +369,6 @@ public class ProductController {
                     .body(
                             e.getMessage()
                     );
-
 
         } catch (
                 Exception e
@@ -421,19 +384,8 @@ public class ProductController {
         }
     }
 
-
     // =========================================================
     // UPDATE PRODUCT
-    // =========================================================
-    //
-    // No JWT.
-    //
-    // Seller email is supplied by the frontend.
-    //
-    // Example:
-    //
-    // PUT /api/products/10?email=seller@gmail.com
-    //
     // =========================================================
 
     @PutMapping("/{id}")
@@ -441,45 +393,41 @@ public class ProductController {
 
             @PathVariable Long id,
 
-            @RequestParam("email")
-            String sellerEmail,
+            @RequestBody Product product,
 
-            @RequestBody Product product
+            Authentication authentication
     ) {
 
         try {
 
             if (
-                    sellerEmail == null ||
-                    sellerEmail.trim().isEmpty()
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
             ) {
 
                 return ResponseEntity
-                        .badRequest()
+                        .status(
+                                HttpStatus.UNAUTHORIZED
+                        )
                         .body(
-                                "Seller email is required."
+                                "Authentication is required"
                         );
             }
 
-
-            sellerEmail =
-                    sellerEmail
-                            .trim()
-                            .toLowerCase();
-
+            String authenticatedSellerEmail =
+                    authentication.getName();
 
             Product updatedProduct =
                     productService.updateProduct(
                             id,
                             product,
-                            sellerEmail
+                            authenticatedSellerEmail
                     );
-
 
             return ResponseEntity.ok(
                     updatedProduct
             );
-
 
         } catch (
                 RuntimeException e
@@ -487,7 +435,6 @@ public class ProductController {
 
             String message =
                     e.getMessage();
-
 
             if (
                     message != null &&
@@ -505,7 +452,6 @@ public class ProductController {
                         .body(message);
             }
 
-
             if (
                     message != null &&
                     message
@@ -522,11 +468,9 @@ public class ProductController {
                         .body(message);
             }
 
-
             return ResponseEntity
                     .badRequest()
                     .body(message);
-
 
         } catch (
                 Exception e
@@ -542,19 +486,8 @@ public class ProductController {
         }
     }
 
-
     // =========================================================
     // DELETE PRODUCT
-    // =========================================================
-    //
-    // No JWT.
-    //
-    // Seller email is supplied directly.
-    //
-    // Example:
-    //
-    // DELETE /api/products/10?email=seller@gmail.com
-    //
     // =========================================================
 
     @DeleteMapping("/{id}")
@@ -562,41 +495,37 @@ public class ProductController {
 
             @PathVariable Long id,
 
-            @RequestParam("email")
-            String sellerEmail
+            Authentication authentication
     ) {
 
         try {
 
             if (
-                    sellerEmail == null ||
-                    sellerEmail.trim().isEmpty()
+                    authentication == null ||
+                    authentication.getName() == null ||
+                    authentication.getName().isBlank()
             ) {
 
                 return ResponseEntity
-                        .badRequest()
+                        .status(
+                                HttpStatus.UNAUTHORIZED
+                        )
                         .body(
-                                "Seller email is required."
+                                "Authentication is required"
                         );
             }
 
-
-            sellerEmail =
-                    sellerEmail
-                            .trim()
-                            .toLowerCase();
-
+            String authenticatedSellerEmail =
+                    authentication.getName();
 
             productService.deleteProduct(
                     id,
-                    sellerEmail
+                    authenticatedSellerEmail
             );
-
 
             return ResponseEntity
                     .noContent()
                     .build();
-
 
         } catch (
                 RuntimeException e
@@ -604,7 +533,6 @@ public class ProductController {
 
             String message =
                     e.getMessage();
-
 
             if (
                     message != null &&
@@ -622,7 +550,6 @@ public class ProductController {
                         .body(message);
             }
 
-
             if (
                     message != null &&
                     message
@@ -639,11 +566,9 @@ public class ProductController {
                         .body(message);
             }
 
-
             return ResponseEntity
                     .badRequest()
                     .body(message);
-
 
         } catch (
                 Exception e
@@ -659,62 +584,44 @@ public class ProductController {
         }
     }
 
-
     // =========================================================
     // SELLER PRODUCTS
-    // =========================================================
-    //
-    // Seller email comes from mandilas-user.
-    //
-    // No JWT.
-    //
-    // Example:
-    //
-    // GET /api/products/seller?email=seller@gmail.com
-    //
     // =========================================================
 
     @GetMapping("/seller")
     public ResponseEntity<?> getSellerProducts(
-
-            @RequestParam("email")
-            String sellerEmail
+            Authentication authentication
     ) {
 
         if (
-                sellerEmail == null ||
-                sellerEmail.trim().isEmpty()
+                authentication == null ||
+                authentication.getName() == null ||
+                authentication.getName().isBlank()
         ) {
 
             return ResponseEntity
-                    .badRequest()
+                    .status(
+                            HttpStatus.UNAUTHORIZED
+                    )
                     .body(
-                            "Seller email is required."
+                            "Authentication is required"
                     );
         }
 
-
-        sellerEmail =
-                sellerEmail
-                        .trim()
-                        .toLowerCase();
-
-
         return ResponseEntity.ok(
-                productService.getProductsBySeller(
-                        sellerEmail
-                )
+                productService
+                        .getProductsBySeller(
+                                authentication
+                                        .getName()
+                        )
         );
     }
-
 
     // =========================================================
     // PRODUCTS BY DEPARTMENT
     // =========================================================
 
-    @GetMapping(
-            "/department/{department}"
-    )
+    @GetMapping("/department/{department}")
     public ResponseEntity<List<Product>>
     getProductsByDepartment(
 
@@ -728,7 +635,6 @@ public class ProductController {
                         )
         );
     }
-
 
     // =========================================================
     // PRODUCTS BY DEPARTMENT + CATEGORY
@@ -753,7 +659,6 @@ public class ProductController {
                         )
         );
     }
-
 
     // =========================================================
     // PRODUCTS BY DEPARTMENT + CATEGORY + SUBCATEGORY
@@ -782,14 +687,11 @@ public class ProductController {
         );
     }
 
-
     // =========================================================
     // PRODUCTS BY CATEGORY
     // =========================================================
 
-    @GetMapping(
-            "/category/{category}"
-    )
+    @GetMapping("/category/{category}")
     public ResponseEntity<List<Product>>
     getProductsByCategory(
 
@@ -803,7 +705,6 @@ public class ProductController {
                         )
         );
     }
-
 
     // =========================================================
     // PRODUCTS BY CATEGORY + SUBCATEGORY
@@ -829,7 +730,6 @@ public class ProductController {
         );
     }
 
-
     // =========================================================
     // PRODUCTS BY SUBCATEGORY
     // =========================================================
@@ -851,9 +751,22 @@ public class ProductController {
         );
     }
 
-
     // =========================================================
     // SEARCH PRODUCTS
+    // =========================================================
+    //
+    // Example:
+    //
+    // GET /api/products/search?name=shirt
+    //
+    // Searches:
+    // name
+    // department
+    // category
+    // subcategory
+    // brand
+    // description
+    //
     // =========================================================
 
     @GetMapping("/search")

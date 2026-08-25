@@ -4,12 +4,12 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(
-        name = "categories",
+        name = "departments",
         uniqueConstraints = {
                 @UniqueConstraint(columnNames = "name")
         }
 )
-public class Category {
+public class Department {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,25 +18,14 @@ public class Category {
     @Column(nullable = false, unique = true)
     private String name;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(
-            name = "department_id",
-            nullable = false
-    )
-    private Department department;
-
     @Column(nullable = false)
     private boolean active = true;
 
-    public Category() {
+    public Department() {
     }
 
-    public Category(
-            String name,
-            Department department
-    ) {
+    public Department(String name) {
         this.name = name;
-        this.department = department;
         this.active = true;
     }
 
@@ -50,14 +39,6 @@ public class Category {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public Department getDepartment() {
-        return department;
-    }
-
-    public void setDepartment(Department department) {
-        this.department = department;
     }
 
     public boolean isActive() {

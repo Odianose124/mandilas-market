@@ -7,7 +7,9 @@ import {
 } from "lucide-react";
 
 import { useProducts } from "../../context/ProductContext";
-import categories from "../../data/categories";
+import {
+ useCategories
+} from "../../context/CategoryContext";
 
 function ProductForm({
   product = null,
@@ -18,6 +20,14 @@ function ProductForm({
     addProduct,
     updateProduct,
   } = useProducts();
+
+  const {
+ categories,
+ subcategories,
+ loadSubcategories
+}
+=
+useCategories();
 
   const isEditing = Boolean(product);
 
@@ -125,17 +135,7 @@ function ProductForm({
    * Find the selected category from the
    * central categories.js file.
    */
-  const selectedCategory = categories.find(
-    (category) =>
-      category.name === formData.category
-  );
-
-  /*
-   * Get subcategories belonging to the
-   * selected category.
-   */
-  const subcategories =
-    selectedCategory?.subcategories || [];
+  
 
   /*
    * Handle normal form fields.
@@ -150,15 +150,22 @@ function ProductForm({
      * If the category changes, reset the
      * previously selected subcategory.
      */
-    if (name === "category") {
-      setFormData((current) => ({
-        ...current,
-        category: value,
-        subcategory: "",
-      }));
+    if(name==="category"){
 
-      return;
-    }
+
+    setFormData(current=>({
+        ...current,
+        category:value,
+        subcategory:""
+    }));
+
+
+    loadSubcategories(value);
+
+
+    return;
+
+}
 
     setFormData((current) => ({
       ...current,
@@ -593,7 +600,7 @@ function ProductForm({
             {subcategories.map(
               (subcategory) => (
                 <option
-                  key={subcategory.slug}
+                  key={subcategory.id}
                   value={subcategory.name}
                 >
                   {subcategory.name}

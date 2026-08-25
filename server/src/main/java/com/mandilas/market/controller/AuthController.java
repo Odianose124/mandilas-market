@@ -2,6 +2,7 @@ package com.mandilas.market.controller;
 
 import com.mandilas.market.model.User;
 import com.mandilas.market.service.AuthService;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,15 +17,28 @@ public class AuthController {
 
     private final AuthService authService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(
+            AuthService authService
+    ) {
         this.authService = authService;
     }
 
 
     /*
-     * =========================
+     * =========================================================
      * REGISTER
-     * =========================
+     * =========================================================
+     *
+     * NO JWT
+     * NO TOKEN
+     *
+     * Login/session is handled by the frontend using
+     * localStorage.
+     *
+     * Seller registration still automatically creates
+     * the seller's store.
+     *
+     * =========================================================
      */
     @PostMapping("/register")
     public ResponseEntity<?> register(
@@ -33,38 +47,63 @@ public class AuthController {
 
         try {
 
-            String firstName = request.get("firstName");
-            String lastName = request.get("lastName");
-            String email = request.get("email");
-            String phone = request.get("phone");
-            String password = request.get("password");
-            String role = request.get("role");
-            String storeName = request.get("storeName");
+            String firstName =
+                    request.get("firstName");
+
+            String lastName =
+                    request.get("lastName");
+
+            String email =
+                    request.get("email");
+
+            String phone =
+                    request.get("phone");
+
+            String password =
+                    request.get("password");
+
+            String role =
+                    request.get("role");
+
+            String storeName =
+                    request.get("storeName");
 
 
             /*
-             * Basic required-field validation.
+             * Required-field validation.
              */
-            if (firstName == null ||
+            if (
+                    firstName == null ||
+                    firstName.trim().isEmpty() ||
+
                     lastName == null ||
+                    lastName.trim().isEmpty() ||
+
                     email == null ||
+                    email.trim().isEmpty() ||
+
                     phone == null ||
-                    password == null) {
+                    phone.trim().isEmpty() ||
+
+                    password == null ||
+                    password.isEmpty()
+            ) {
 
                 return ResponseEntity
                         .badRequest()
-                        .body(Map.of(
-                                "message",
-                                "All required fields must be provided."
-                        ));
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "All required fields must be provided."
+                                )
+                        );
             }
 
 
             /*
-             * Register user and receive:
+             * Register user.
              *
-             * - saved user
-             * - JWT token
+             * NO JWT.
              */
             AuthService.RegistrationResult result =
                     authService.register(
@@ -78,12 +117,14 @@ public class AuthController {
                     );
 
 
-            User user = result.user();
+            User user =
+                    result.user();
 
 
             /*
-             * Return the same authentication
-             * structure used by login.
+             * Return user information only.
+             *
+             * DO NOT return a token.
              */
             return ResponseEntity
                     .status(HttpStatus.CREATED)
@@ -91,9 +132,6 @@ public class AuthController {
                             Map.of(
                                     "message",
                                     "Account created successfully.",
-
-                                    "token",
-                                    result.token(),
 
                                     "user",
                                     userResponseData(user)
@@ -111,14 +149,34 @@ public class AuthController {
                                     e.getMessage()
                             )
                     );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Registration failed: "
+                                            + e.getMessage()
+                            )
+                    );
         }
     }
 
 
     /*
-     * =========================
+     * =========================================================
      * LOGIN
-     * =========================
+     * =========================================================
+     *
+     * NO JWT
+     * NO TOKEN
+     *
+     * The frontend receives the authenticated user's
+     * information and stores it in localStorage.
+     *
+     * =========================================================
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(
@@ -127,23 +185,50 @@ public class AuthController {
 
         try {
 
-            String email = request.get("email");
-            String password = request.get("password");
+            String email =
+                    request.get("email");
+
+            String password =
+                    request.get("password");
 
 
-            if (email == null || password == null) {
+            if (
+                    email == null ||
+                    email.trim().isEmpty()
+            ) {
 
                 return ResponseEntity
                         .badRequest()
                         .body(
                                 Map.of(
                                         "message",
-                                        "Email and password are required."
+                                        "Email is required."
                                 )
                         );
             }
 
 
+            if (
+                    password == null ||
+                    password.isEmpty()
+            ) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "Password is required."
+                                )
+                        );
+            }
+
+
+            /*
+             * Login user.
+             *
+             * NO JWT.
+             */
             AuthService.LoginResult result =
                     authService.login(
                             email,
@@ -151,16 +236,20 @@ public class AuthController {
                     );
 
 
-            User user = result.user();
+            User user =
+                    result.user();
 
 
+            /*
+             * Return user information only.
+             *
+             * IMPORTANT:
+             * There is NO result.token() here.
+             */
             return ResponseEntity.ok(
                     Map.of(
                             "message",
                             "Login successful.",
-
-                            "token",
-                            result.token(),
 
                             "user",
                             userResponseData(user)
@@ -178,17 +267,32 @@ public class AuthController {
                                     e.getMessage()
                             )
                     );
+
+        } catch (Exception e) {
+
+            return ResponseEntity
+                    .internalServerError()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Login failed: "
+                                            + e.getMessage()
+                            )
+                    );
         }
     }
 
 
     /*
-     * =========================
-     * USER RESPONSE
-     * =========================
+     * =========================================================
+     * USER RESPONSE DATA
+     * =========================================================
      *
-     * We don't send the password back
-     * to the frontend.
+     * Password is NEVER returned.
+     *
+     * JWT/token is NOT returned.
+     *
+     * =========================================================
      */
     private Map<String, Object> userResponseData(
             User user
@@ -203,30 +307,38 @@ public class AuthController {
                 user.getId()
         );
 
+
         response.put(
                 "firstName",
                 user.getFirstName()
         );
+
 
         response.put(
                 "lastName",
                 user.getLastName()
         );
 
+
         response.put(
                 "email",
                 user.getEmail()
         );
+
 
         response.put(
                 "phone",
                 user.getPhone()
         );
 
+
         response.put(
                 "role",
-                user.getRole().name()
+                user.getRole() == null
+                        ? ""
+                        : user.getRole().name()
         );
+
 
         response.put(
                 "sellerVerified",
@@ -236,9 +348,6 @@ public class AuthController {
 
         /*
          * Always provide storeName.
-         *
-         * This makes the frontend response
-         * consistent for buyers and sellers.
          */
         response.put(
                 "storeName",

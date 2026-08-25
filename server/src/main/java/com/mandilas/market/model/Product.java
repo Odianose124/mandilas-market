@@ -126,7 +126,7 @@ public class Product {
     // =========================================================
 
     /*
-     * Seller identity comes from the authenticated JWT.
+     * Seller identity comes from mandilas-user session sent by the frontend.
      */
     @Column(nullable = false)
     private String sellerEmail;

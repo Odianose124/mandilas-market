@@ -1,10 +1,9 @@
-﻿package com.mandilas.market.controller;
+package com.mandilas.market.controller;
 
 import com.mandilas.market.model.Order;
 import com.mandilas.market.service.OrderService;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +18,7 @@ public class OrderController {
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
+
 
     /*
      * =========================================================
@@ -98,6 +98,15 @@ public class OrderController {
      * =========================================================
      * GET CUSTOMER ORDERS
      * =========================================================
+     *
+     * No JWT.
+     * No Authentication object.
+     *
+     * Request:
+     *
+     * GET /api/orders/customer/{email}
+     *
+     * =========================================================
      */
     @GetMapping("/customer/{email}")
     public ResponseEntity<List<Order>> getOrdersByEmail(
@@ -113,38 +122,43 @@ public class OrderController {
     /*
      * =========================================================
      * GET SELLER ORDERS
+     * =========================================================
      *
-     * The seller email comes from the authenticated JWT.
+     * NO JWT.
+     * NO Authentication object.
      *
-     * Frontend calls:
+     * Seller identity comes from the simple frontend
+     * localStorage session.
      *
-     * GET /api/orders/seller
+     * Frontend request:
      *
-     * No seller email needs to be placed in the URL.
+     * GET /api/orders/seller?email=seller@email.com
+     *
      * =========================================================
      */
     @GetMapping("/seller")
     public ResponseEntity<?> getOrdersBySeller(
-            Authentication authentication
+            @RequestParam String email
     ) {
 
         try {
 
             if (
-                    authentication == null ||
-                    authentication.getName() == null ||
-                    authentication.getName().isBlank()
+                    email == null ||
+                    email.trim().isEmpty()
             ) {
 
                 return ResponseEntity
-                        .status(401)
+                        .badRequest()
                         .body(
-                                "Seller authentication is required"
+                                "Seller email is required."
                         );
             }
 
             String sellerEmail =
-                    authentication.getName();
+                    email
+                            .trim()
+                            .toLowerCase();
 
             return ResponseEntity.ok(
                     orderService.getOrdersBySellerEmail(
@@ -173,62 +187,46 @@ public class OrderController {
     /*
      * =========================================================
      * SELLER ORDERS COMPATIBILITY ROUTE
+     * =========================================================
      *
-     * Supports the old frontend request:
+     * NO JWT.
+     * NO Authentication.
+     *
+     * Kept so older frontend code can still work.
+     *
+     * Request:
      *
      * GET /api/orders/seller/{email}
      *
-     * This is kept temporarily so an older frontend build
-     * does not immediately break.
-     *
-     * The authenticated seller MUST match the email in
-     * the URL.
      * =========================================================
      */
     @GetMapping("/seller/{email}")
     public ResponseEntity<?> getOrdersBySellerEmail(
-            @PathVariable String email,
-            Authentication authentication
+            @PathVariable String email
     ) {
 
         try {
 
             if (
-                    authentication == null ||
-                    authentication.getName() == null ||
-                    authentication.getName().isBlank()
+                    email == null ||
+                    email.trim().isEmpty()
             ) {
 
                 return ResponseEntity
-                        .status(401)
+                        .badRequest()
                         .body(
-                                "Seller authentication is required"
+                                "Seller email is required."
                         );
             }
 
-            String authenticatedEmail =
-                    authentication.getName();
-
-            /*
-             * Prevent a seller from requesting another
-             * seller's orders.
-             */
-            if (
-                    !authenticatedEmail
-                            .equalsIgnoreCase(email)
-            ) {
-
-                return ResponseEntity
-                        .status(403)
-                        .body(
-                                "You are not authorized to access "
-                                        + "another seller's orders."
-                        );
-            }
+            String sellerEmail =
+                    email
+                            .trim()
+                            .toLowerCase();
 
             return ResponseEntity.ok(
                     orderService.getOrdersBySellerEmail(
-                            authenticatedEmail
+                            sellerEmail
                     )
             );
 

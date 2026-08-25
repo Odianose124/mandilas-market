@@ -13,8 +13,12 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
 
-    public OrderService(OrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
+    public OrderService(
+            OrderRepository orderRepository
+    ) {
+
+        this.orderRepository =
+                orderRepository;
     }
 
 
@@ -23,7 +27,19 @@ public class OrderService {
      * CREATE A NEW ORDER
      * =========================================================
      */
-    public Order createOrder(Order order) {
+    public Order createOrder(
+            Order order
+    ) {
+
+        if (
+                order == null
+        ) {
+
+            throw new RuntimeException(
+                    "Order is required"
+            );
+        }
+
 
         if (
                 order.getItems() == null ||
@@ -37,25 +53,40 @@ public class OrderService {
 
 
         /*
-         * Make sure every OrderItem points back to
-         * this Order.
+         * Make sure every OrderItem points back
+         * to this Order.
          */
-        for (OrderItem item : order.getItems()) {
+        for (
+                OrderItem item :
+                order.getItems()
+        ) {
 
-            item.setOrder(order);
+            if (item != null) {
+
+                item.setOrder(order);
+            }
         }
 
 
         /*
          * Calculate each item's total.
          */
-        for (OrderItem item : order.getItems()) {
+        for (
+                OrderItem item :
+                order.getItems()
+        ) {
+
+            if (item == null) {
+                continue;
+            }
 
             double itemTotal =
                     item.getPrice()
                             * item.getQuantity();
 
-            item.setTotal(itemTotal);
+            item.setTotal(
+                    itemTotal
+            );
         }
 
 
@@ -65,12 +96,17 @@ public class OrderService {
         double subtotal =
                 order.getItems()
                         .stream()
+                        .filter(
+                                item -> item != null
+                        )
                         .mapToDouble(
                                 OrderItem::getTotal
                         )
                         .sum();
 
-        order.setSubtotal(subtotal);
+        order.setSubtotal(
+                subtotal
+        );
 
 
         /*
@@ -80,7 +116,9 @@ public class OrderService {
                 order.getSubtotal()
                         + order.getDeliveryFee();
 
-        order.setTotal(total);
+        order.setTotal(
+                total
+        );
 
 
         /*
@@ -91,7 +129,9 @@ public class OrderService {
                 order.getPaymentStatus().isBlank()
         ) {
 
-            order.setPaymentStatus("Pending");
+            order.setPaymentStatus(
+                    "Pending"
+            );
         }
 
 
@@ -103,11 +143,15 @@ public class OrderService {
                 order.getOrderStatus().isBlank()
         ) {
 
-            order.setOrderStatus("Pending");
+            order.setOrderStatus(
+                    "Pending"
+            );
         }
 
 
-        return orderRepository.save(order);
+        return orderRepository.save(
+                order
+        );
     }
 
 
@@ -127,14 +171,24 @@ public class OrderService {
      * GET ONE ORDER
      * =========================================================
      */
-    public Order getOrderById(Long id) {
+    public Order getOrderById(
+            Long id
+    ) {
+
+        if (id == null) {
+
+            throw new RuntimeException(
+                    "Order ID is required"
+            );
+        }
 
         return orderRepository
                 .findById(id)
                 .orElseThrow(
-                        () -> new RuntimeException(
-                                "Order not found"
-                        )
+                        () ->
+                                new RuntimeException(
+                                        "Order not found"
+                                )
                 );
     }
 
@@ -148,16 +202,38 @@ public class OrderService {
             String email
     ) {
 
-        return orderRepository.findByEmail(email);
+        if (
+                email == null ||
+                email.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Customer email is required"
+            );
+        }
+
+        return orderRepository.findByEmail(
+                email
+                        .trim()
+                        .toLowerCase()
+        );
     }
 
 
     /*
      * =========================================================
      * GET SELLER ORDERS
+     * =========================================================
      *
-     * Seller orders are found through
-     * OrderItem.sellerEmail.
+     * NO JWT.
+     * NO Authentication.
+     *
+     * Seller identity is supplied by the controller.
+     *
+     * Orders are matched through:
+     *
+     * OrderItem.sellerEmail
+     *
      * =========================================================
      */
     public List<Order> getOrdersBySellerEmail(
@@ -166,7 +242,7 @@ public class OrderService {
 
         if (
                 sellerEmail == null ||
-                sellerEmail.isBlank()
+                sellerEmail.trim().isEmpty()
         ) {
 
             throw new RuntimeException(
@@ -174,9 +250,12 @@ public class OrderService {
             );
         }
 
+
         return orderRepository
                 .findDistinctByItemsSellerEmail(
                         sellerEmail
+                                .trim()
+                                .toLowerCase()
                 );
     }
 
@@ -190,10 +269,21 @@ public class OrderService {
             String orderStatus
     ) {
 
+        if (
+                orderStatus == null ||
+                orderStatus.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Order status is required"
+            );
+        }
+
         return orderRepository
                 .findByOrderStatus(
                         orderStatus
-                );
+                                .trim()
+        );
     }
 
 
@@ -206,9 +296,20 @@ public class OrderService {
             String paymentStatus
     ) {
 
+        if (
+                paymentStatus == null ||
+                paymentStatus.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Payment status is required"
+            );
+        }
+
         return orderRepository
                 .findByPaymentStatus(
                         paymentStatus
+                                .trim()
                 );
     }
 
@@ -223,14 +324,29 @@ public class OrderService {
             String orderStatus
     ) {
 
+        if (
+                orderStatus == null ||
+                orderStatus.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Order status is required"
+            );
+        }
+
+
         Order order =
                 getOrderById(id);
 
+
         order.setOrderStatus(
-                orderStatus
+                orderStatus.trim()
         );
 
-        return orderRepository.save(order);
+
+        return orderRepository.save(
+                order
+        );
     }
 
 
@@ -244,14 +360,29 @@ public class OrderService {
             String paymentStatus
     ) {
 
+        if (
+                paymentStatus == null ||
+                paymentStatus.trim().isEmpty()
+        ) {
+
+            throw new RuntimeException(
+                    "Payment status is required"
+            );
+        }
+
+
         Order order =
                 getOrderById(id);
 
+
         order.setPaymentStatus(
-                paymentStatus
+                paymentStatus.trim()
         );
 
-        return orderRepository.save(order);
+
+        return orderRepository.save(
+                order
+        );
     }
 
 
@@ -260,7 +391,19 @@ public class OrderService {
      * DELETE ORDER
      * =========================================================
      */
-    public void deleteOrder(Long id) {
+    public void deleteOrder(
+            Long id
+    ) {
+
+        if (
+                id == null
+        ) {
+
+            throw new RuntimeException(
+                    "Order ID is required"
+            );
+        }
+
 
         if (
                 !orderRepository.existsById(id)
@@ -271,6 +414,9 @@ public class OrderService {
             );
         }
 
-        orderRepository.deleteById(id);
+
+        orderRepository.deleteById(
+                id
+        );
     }
 }

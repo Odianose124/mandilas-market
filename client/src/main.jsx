@@ -5,6 +5,9 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 
 import { CartProvider } from "./context/CartContext";
+import {
+ CategoryProvider
+} from "./context/CategoryContext";
 import { AuthProvider } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { ProductProvider } from "./context/ProductContext";
@@ -15,6 +18,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
 
     <BrowserRouter>
+
+    <CategoryProvider>
 
       <AuthProvider>
 
@@ -33,7 +38,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         </CartProvider>
 
       </AuthProvider>
-
+</CategoryProvider> 
+    
     </BrowserRouter>
 
   </React.StrictMode>

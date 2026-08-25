@@ -21,6 +21,11 @@ public class CategoryController {
         this.categoryService = categoryService;
     }
 
+
+    // =========================================================
+    // GET ALL ACTIVE CATEGORIES
+    // =========================================================
+
     @GetMapping
     public ResponseEntity<List<Category>> getCategories() {
 
@@ -29,9 +34,13 @@ public class CategoryController {
         );
     }
 
+
+    // =========================================================
+    // GET SUBCATEGORIES BY CATEGORY
+    // =========================================================
+
     @GetMapping("/{category}/subcategories")
-    public ResponseEntity<List<Subcategory>>
-    getSubcategories(
+    public ResponseEntity<List<Subcategory>> getSubcategories(
             @PathVariable String category
     ) {
 
@@ -42,6 +51,20 @@ public class CategoryController {
         );
     }
 
+
+    // =========================================================
+    // CREATE CATEGORY
+    // =========================================================
+    //
+    // Expected request:
+    //
+    // {
+    //     "name": "Men's Wear",
+    //     "department": "Fashion"
+    // }
+    //
+    // =========================================================
+
     @PostMapping
     public ResponseEntity<?> createCategory(
             @RequestBody Map<String, String> body
@@ -49,19 +72,50 @@ public class CategoryController {
 
         try {
 
-            return ResponseEntity.ok(
+            String name =
+                    body.get("name");
+
+            String department =
+                    body.get("department");
+
+
+            Category category =
                     categoryService.createCategory(
-                            body.get("name")
-                    )
+                            name,
+                            department
+                    );
+
+
+            return ResponseEntity.ok(
+                    category
             );
 
         } catch (RuntimeException e) {
 
             return ResponseEntity
                     .badRequest()
-                    .body(e.getMessage());
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
+
+
+    // =========================================================
+    // CREATE SUBCATEGORY
+    // =========================================================
+    //
+    // Expected request:
+    //
+    // {
+    //     "category": "Men's Wear",
+    //     "name": "Shirts"
+    // }
+    //
+    // =========================================================
 
     @PostMapping("/subcategory")
     public ResponseEntity<?> createSubcategory(
@@ -70,18 +124,34 @@ public class CategoryController {
 
         try {
 
-            return ResponseEntity.ok(
+            String category =
+                    body.get("category");
+
+            String name =
+                    body.get("name");
+
+
+            Subcategory subcategory =
                     categoryService.createSubcategory(
-                            body.get("category"),
-                            body.get("name")
-                    )
+                            category,
+                            name
+                    );
+
+
+            return ResponseEntity.ok(
+                    subcategory
             );
 
         } catch (RuntimeException e) {
 
             return ResponseEntity
                     .badRequest()
-                    .body(e.getMessage());
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 }

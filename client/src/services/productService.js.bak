@@ -4,6 +4,28 @@ const API_URL =
 
 /*
  * =========================================================
+ * AUTH HEADERS
+ * =========================================================
+ */
+
+function getAuthHeaders() {
+  const token =
+    localStorage.getItem(
+      "mandilas-token"
+    );
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+
+/*
+ * =========================================================
  * GET ALL PRODUCTS
  * =========================================================
  */
@@ -28,15 +50,19 @@ export async function getAllProducts() {
  * =========================================================
  */
 
-export async function getProductById(id) {
+export async function getProductById(
+  id
+) {
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`
+      `${API_URL}/${id}`
     );
 
   if (!response.ok) {
 
-    if (response.status === 404) {
+    if (
+      response.status === 404
+    ) {
       return null;
     }
 
@@ -55,44 +81,12 @@ export async function getProductById(id) {
  * =========================================================
  */
 
-export async function createProduct(product) {
+export async function createProduct(
+  product
+) {
 
   const formData =
     new FormData();
-
-  /*
-   * Get the currently logged-in seller
-   * from the simple local user session.
-   */
-  const savedUser =
-    localStorage.getItem(
-      "mandilas-user"
-    );
-
-  const sellerUser =
-    savedUser
-      ? JSON.parse(savedUser)
-      : null;
-
-  const sellerEmail =
-    sellerUser?.email || "";
-
-  if (!sellerEmail) {
-    throw new Error(
-      "Please login as a seller before adding a product."
-    );
-  }
-
-  /*
-   * Seller identity is sent directly.
-   *
-   * No JWT.
-   * No Authorization header.
-   */
-  formData.append(
-    "sellerEmail",
-    sellerEmail
-  );
 
   formData.append(
     "name",
@@ -112,11 +106,6 @@ export async function createProduct(product) {
   formData.append(
     "stock",
     product.stock ?? "0"
-  );
-
-  formData.append(
-    "department",
-    product.department || ""
   );
 
   formData.append(
@@ -166,34 +155,37 @@ export async function createProduct(product) {
 
 
   /*
-   * =======================================================
    * IMAGES
-   * =======================================================
    */
 
   if (
-    Array.isArray(product.images)
+    Array.isArray(
+      product.images
+    )
   ) {
 
     product.images.forEach(
       (image) => {
 
-        if (image instanceof File) {
+        if (
+          image instanceof File
+        ) {
 
           formData.append(
             "images",
             image
           );
+
         }
+
       }
     );
+
   }
 
 
   /*
-   * =======================================================
    * VIDEO
-   * =======================================================
    */
 
   if (
@@ -204,17 +196,12 @@ export async function createProduct(product) {
       "video",
       product.video
     );
+
   }
 
 
   /*
-   * =======================================================
    * REQUEST
-   * =======================================================
-   *
-   * IMPORTANT:
-   * No JWT.
-   * No Authorization header.
    */
 
   const response =
@@ -222,6 +209,11 @@ export async function createProduct(product) {
       API_URL,
       {
         method: "POST",
+
+        headers: {
+          ...getAuthHeaders(),
+        },
+
         body: formData,
       }
     );
@@ -261,6 +253,7 @@ export async function createProduct(product) {
         if (text) {
           message = text;
         }
+
       }
 
     } catch {
@@ -280,33 +273,28 @@ export async function createProduct(product) {
  * =========================================================
  */
 
-export async function updateProduct(id, product) {
-
-  const savedUser = localStorage.getItem("mandilas-user");
-
-  const sellerUser = savedUser
-    ? JSON.parse(savedUser)
-    : null;
-
-  const sellerEmail = sellerUser?.email || "";
-
-  if (!sellerEmail) {
-    throw new Error("Please login as a seller.");
-  }
+export async function updateProduct(
+  id,
+  product
+) {
 
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`,
+      `${API_URL}/${id}`,
       {
         method: "PUT",
 
         headers: {
           "Content-Type":
             "application/json",
+
+          ...getAuthHeaders(),
         },
 
         body:
-          JSON.stringify(product),
+          JSON.stringify(
+            product
+          ),
       }
     );
 
@@ -343,25 +331,19 @@ export async function updateProduct(id, product) {
  * =========================================================
  */
 
-export async function deleteProduct(id) {
-
-  const savedUser = localStorage.getItem("mandilas-user");
-
-  const sellerUser = savedUser
-    ? JSON.parse(savedUser)
-    : null;
-
-  const sellerEmail = sellerUser?.email || "";
-
-  if (!sellerEmail) {
-    throw new Error("Please login as a seller.");
-  }
+export async function deleteProduct(
+  id
+) {
 
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`,
+      `${API_URL}/${id}`,
       {
         method: "DELETE",
+
+        headers: {
+          ...getAuthHeaders(),
+        },
       }
     );
 
@@ -397,37 +379,25 @@ export async function deleteProduct(id) {
  * GET SELLER PRODUCTS
  * =========================================================
  *
- * Seller identity comes from mandilas-user.
+ * Seller identity comes from JWT.
  *
- * No JWT.
+ * IMPORTANT:
+ * We intentionally do NOT send sellerEmail
+ * in the URL.
  */
 
 export async function getProductsBySeller() {
 
-  const savedUser =
-    localStorage.getItem(
-      "mandilas-user"
-    );
-
-  const sellerUser =
-    savedUser
-      ? JSON.parse(savedUser)
-      : null;
-
-  const sellerEmail =
-    sellerUser?.email || "";
-
-  if (!sellerEmail) {
-    throw new Error(
-      "Please login as a seller."
-    );
-  }
-
   const response =
     await fetch(
-      `${API_URL}/seller?email=${encodeURIComponent(
-        sellerEmail
-      )}`
+      `${API_URL}/seller`,
+      {
+        method: "GET",
+
+        headers: {
+          ...getAuthHeaders(),
+        },
+      }
     );
 
 
@@ -474,7 +444,9 @@ export async function getProductsByCategory(
       )}`
     );
 
+
   if (!response.ok) {
+
     throw new Error(
       "Failed to fetch category products"
     );
@@ -504,7 +476,9 @@ export async function getProductsByCategoryAndSubcategory(
       )}`
     );
 
+
   if (!response.ok) {
+
     throw new Error(
       "Failed to fetch category and subcategory products"
     );
@@ -531,7 +505,9 @@ export async function getProductsBySubcategory(
       )}`
     );
 
+
   if (!response.ok) {
+
     throw new Error(
       "Failed to fetch subcategory products"
     );
@@ -547,11 +523,17 @@ export async function getProductsBySubcategory(
  * =========================================================
  */
 
-export async function searchProducts(name) {
+export async function searchProducts(
+  name
+) {
 
   const term =
     name?.trim();
 
+
+  /*
+   * Empty search = all products
+   */
 
   if (!term) {
     return getAllProducts();
@@ -600,6 +582,7 @@ export async function searchProducts(name) {
         if (text) {
           message = text;
         }
+
       }
 
     } catch {
@@ -611,4 +594,3 @@ export async function searchProducts(name) {
 
   return response.json();
 }
-

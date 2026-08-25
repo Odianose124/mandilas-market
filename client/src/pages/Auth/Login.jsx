@@ -35,6 +35,28 @@ function Login() {
     }));
   };
 
+
+  /*
+   * =========================================================
+   * LOGIN
+   * =========================================================
+   *
+   * NO JWT.
+   *
+   * The backend only verifies:
+   *
+   * - email
+   * - password
+   *
+   * The backend returns the user.
+   *
+   * AuthContext then stores the user in:
+   *
+   * mandilas-user
+   *
+   * =========================================================
+   */
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -43,89 +65,119 @@ function Login() {
     setLoading(true);
 
     try {
+
       /*
-       * Login against the real Railway backend.
+       * Login against the real backend.
        */
       const result = await loginUser(
         formData.email,
         formData.password
       );
 
+
       /*
-       * Backend returns:
+       * Backend response:
        *
        * {
        *   message,
-       *   token,
        *   user
        * }
+       *
+       * There is NO token.
        */
-      const backendUser = result.user;
+      const backendUser =
+        result?.user;
 
-      const jwtToken = result.token;
 
-      if (!backendUser || !jwtToken) {
+      /*
+       * Make sure the backend actually
+       * returned a user.
+       */
+      if (!backendUser) {
+
         throw new Error(
-          "Login response is missing authentication information."
+          "Login response is missing user information."
         );
       }
 
-      /*
-       * Save the real backend user
-       * and JWT through AuthContext.
-       */
-      login(
-        backendUser,
-        jwtToken
-      );
 
       /*
-       * Login is successful.
+       * Save the authenticated user
+       * through AuthContext.
        *
-       * BOTH buyers and sellers now go
-       * to the main Mandilas Market home page.
+       * AuthContext handles:
        *
-       * Their role is still saved inside AuthContext,
-       * so seller/buyer-specific pages can still
-       * use the user's role.
+       * mandilas-user
+       *
+       * in localStorage.
+       *
+       * NO JWT.
+       */
+      login(
+        backendUser
+      );
+
+
+      /*
+       * Login successful.
+       *
+       * Both BUYER and SELLER go
+       * to the main marketplace.
+       *
+       * Their role remains available
+       * through AuthContext.
        */
       navigate("/");
 
+
     } catch (error) {
+
       console.error(
         "Login error:",
         error
       );
 
       setError(
-        error.message ||
+        error?.message ||
           "Login failed. Please check your email and password."
       );
 
     } finally {
+
       setLoading(false);
+
     }
   };
 
+
   /*
-   * Go back to the previous page.
+   * =========================================================
+   * BACK BUTTON
+   * =========================================================
    */
+
   const handleBack = () => {
+
     navigate(-1);
+
   };
+
 
   return (
     <section className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-12">
 
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
 
-        {/* Back Button */}
+        {/* =====================================================
+            BACK BUTTON
+        ===================================================== */}
 
         <button
           type="button"
           onClick={handleBack}
           className="flex items-center gap-2 text-gray-600 hover:text-green-700 font-medium mb-8 transition"
         >
+
           <span className="text-xl">
             ←
           </span>
@@ -133,9 +185,13 @@ function Login() {
           <span>
             Back
           </span>
+
         </button>
 
-        {/* Header */}
+
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
 
         <div className="text-center mb-10">
 
@@ -149,7 +205,10 @@ function Login() {
 
         </div>
 
-        {/* Error */}
+
+        {/* =====================================================
+            ERROR MESSAGE
+        ===================================================== */}
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -157,14 +216,19 @@ function Login() {
           </div>
         )}
 
-        {/* Login Form */}
+
+        {/* =====================================================
+            LOGIN FORM
+        ===================================================== */}
 
         <form
           onSubmit={handleSubmit}
           className="space-y-6"
         >
 
-          {/* Email */}
+          {/* ===================================================
+              EMAIL
+          =================================================== */}
 
           <input
             type="email"
@@ -176,7 +240,10 @@ function Login() {
             required
           />
 
-          {/* Password */}
+
+          {/* ===================================================
+              PASSWORD
+          =================================================== */}
 
           <input
             type="password"
@@ -188,7 +255,10 @@ function Login() {
             required
           />
 
-          {/* Remember / Forgot Password */}
+
+          {/* ===================================================
+              REMEMBER ME / FORGOT PASSWORD
+          =================================================== */}
 
           <div className="flex items-center justify-between">
 
@@ -207,6 +277,7 @@ function Login() {
 
             </label>
 
+
             <Link
               to="/forgot-password"
               className="text-sm text-green-700 font-semibold hover:underline"
@@ -216,7 +287,10 @@ function Login() {
 
           </div>
 
-          {/* Login Button */}
+
+          {/* ===================================================
+              LOGIN BUTTON
+          =================================================== */}
 
           <button
             type="submit"
@@ -236,7 +310,10 @@ function Login() {
 
         </form>
 
-        {/* Register */}
+
+        {/* =====================================================
+            REGISTER LINK
+        ===================================================== */}
 
         <div className="mt-8 text-center">
 
