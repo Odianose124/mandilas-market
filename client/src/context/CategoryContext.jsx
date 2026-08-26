@@ -12,8 +12,9 @@ import {
     getSubcategories
 } from "../services/categoryService";
 
-const CategoryContext =
-    createContext(null);
+
+const CategoryContext = createContext();
+
 
 export function CategoryProvider({
     children
@@ -49,6 +50,7 @@ export function CategoryProvider({
         setLoadingSubcategories
     ] = useState(false);
 
+
     // ======================================================
     // LOAD DEPARTMENTS
     // ======================================================
@@ -58,6 +60,7 @@ export function CategoryProvider({
         loadDepartments();
 
     }, []);
+
 
     async function loadDepartments() {
 
@@ -90,11 +93,12 @@ export function CategoryProvider({
         }
     }
 
+
     // ======================================================
     // LOAD ALL CATEGORIES
     // ======================================================
 
-    async function loadAllCategories() {
+    async function loadCategories() {
 
         try {
 
@@ -125,6 +129,7 @@ export function CategoryProvider({
         }
     }
 
+
     // ======================================================
     // LOAD CATEGORIES BY DEPARTMENT
     // ======================================================
@@ -139,14 +144,12 @@ export function CategoryProvider({
             setSubcategories([]);
 
             return;
+
         }
 
         try {
 
             setLoadingCategories(true);
-
-            setCategories([]);
-            setSubcategories([]);
 
             const data =
                 await getCategoriesByDepartment(
@@ -159,6 +162,8 @@ export function CategoryProvider({
                     : []
             );
 
+            setSubcategories([]);
+
         } catch (error) {
 
             console.error(
@@ -167,6 +172,7 @@ export function CategoryProvider({
             );
 
             setCategories([]);
+            setSubcategories([]);
 
         } finally {
 
@@ -174,6 +180,7 @@ export function CategoryProvider({
 
         }
     }
+
 
     // ======================================================
     // LOAD SUBCATEGORIES
@@ -188,13 +195,12 @@ export function CategoryProvider({
             setSubcategories([]);
 
             return;
+
         }
 
         try {
 
             setLoadingSubcategories(true);
-
-            setSubcategories([]);
 
             const data =
                 await getSubcategories(
@@ -223,31 +229,38 @@ export function CategoryProvider({
         }
     }
 
+
     return (
+
         <CategoryContext.Provider
             value={{
                 departments,
                 categories,
                 subcategories,
 
-                loadDepartments,
-                loadAllCategories,
-                loadCategoriesByDepartment,
-                loadSubcategories,
-
                 loadingDepartments,
                 loadingCategories,
-                loadingSubcategories
+                loadingSubcategories,
+
+                loadDepartments,
+                loadCategories,
+                loadCategoriesByDepartment,
+                loadSubcategories
             }}
         >
+
             {children}
+
         </CategoryContext.Provider>
+
     );
 }
+
 
 export function useCategories() {
 
     return useContext(
         CategoryContext
     );
+
 }

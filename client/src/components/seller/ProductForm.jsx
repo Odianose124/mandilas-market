@@ -36,6 +36,7 @@ function ProductForm({
 
   const [formData, setFormData] = useState({
     name: "",
+    department: "",
     description: "",
     price: "",
     stock: "",
@@ -70,7 +71,8 @@ function ProductForm({
     if (!product) {
       setFormData({
         name: "",
-        description: "",
+    department: "",
+    description: "",
         price: "",
         stock: "",
         department: "",
@@ -96,6 +98,7 @@ function ProductForm({
 
     setFormData({
       name: product.name ?? "",
+      department: product.department ?? "",
       description: product.description ?? "",
       price: product.price ?? "",
       stock: product.stock ?? "",
@@ -315,6 +318,10 @@ function ProductForm({
       return "Please enter a valid stock quantity.";
     }
 
+    if (!formData.department) {
+      return "Please select a department.";
+    }
+
     if (!formData.category) {
       return "Please select a category.";
     }
@@ -393,6 +400,9 @@ function ProductForm({
         price: Number(formData.price),
 
         stock: Number(formData.stock),
+
+        department:
+          formData.department,
 
         category:
           formData.category,
@@ -554,13 +564,66 @@ function ProductForm({
           required
         />
       </div>
-
       {/* ============================== */}
-      {/* CATEGORY */}
+      {/* DEPARTMENT / CATEGORY / SUBCATEGORY */}
       {/* ============================== */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+        {/* DEPARTMENT */}
+
         <div>
+
+          <label className="block text-sm font-semibold mb-2">
+            Department
+          </label>
+
+          <select
+            name="department"
+            value={formData.department}
+            onChange={handleChange}
+            disabled={loadingDepartments}
+            className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+            required
+          >
+
+            <option value="">
+              {loadingDepartments
+                ? "Loading departments..."
+                : "Select department"}
+            </option>
+
+            {departments.map((department) => {
+
+              const value =
+                typeof department === "string"
+                  ? department
+                  : department.name;
+
+              return (
+                <option
+                  key={
+                    department.id ??
+                    department.name ??
+                    value
+                  }
+                  value={value}
+                >
+                  {value}
+                </option>
+              );
+
+            })}
+
+          </select>
+
+        </div>
+
+
+        {/* CATEGORY */}
+
+        <div>
+
           <label className="block text-sm font-semibold mb-2">
             Category
           </label>
@@ -569,31 +632,55 @@ function ProductForm({
             name="category"
             value={formData.category}
             onChange={handleChange}
-            className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500"
+            disabled={
+              !formData.department ||
+              loadingCategories
+            }
+            className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
             required
           >
+
             <option value="">
-              Select category
+              {!formData.department
+                ? "Select department first"
+                : loadingCategories
+                  ? "Loading categories..."
+                  : categories.length === 0
+                    ? "No categories available"
+                    : "Select category"}
             </option>
 
-            {categories.map(
-              (category) => (
+            {categories.map((category) => {
+
+              const value =
+                typeof category === "string"
+                  ? category
+                  : category.name;
+
+              return (
                 <option
-                  key={category.id}
-                  value={category.name}
+                  key={
+                    category.id ??
+                    category.name ??
+                    value
+                  }
+                  value={value}
                 >
-                  {category.name}
+                  {value}
                 </option>
-              )
-            )}
+              );
+
+            })}
+
           </select>
+
         </div>
 
-        {/* ============================== */}
+
         {/* SUBCATEGORY */}
-        {/* ============================== */}
 
         <div>
+
           <label className="block text-sm font-semibold mb-2">
             Subcategory
           </label>
@@ -602,28 +689,50 @@ function ProductForm({
             name="subcategory"
             value={formData.subcategory}
             onChange={handleChange}
-            disabled={!formData.category}
+            disabled={
+              !formData.category ||
+              loadingSubcategories
+            }
             className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
             required
           >
+
             <option value="">
-              {formData.category
-                ? "Select subcategory"
-                : "Select category first"}
+              {!formData.category
+                ? "Select category first"
+                : loadingSubcategories
+                  ? "Loading subcategories..."
+                  : subcategories.length === 0
+                    ? "No subcategories available"
+                    : "Select subcategory"}
             </option>
 
-            {subcategories.map(
-              (subcategory) => (
+            {subcategories.map((subcategory) => {
+
+              const value =
+                typeof subcategory === "string"
+                  ? subcategory
+                  : subcategory.name;
+
+              return (
                 <option
-                  key={subcategory.id}
-                  value={subcategory.name}
+                  key={
+                    subcategory.id ??
+                    subcategory.name ??
+                    value
+                  }
+                  value={value}
                 >
-                  {subcategory.name}
+                  {value}
                 </option>
-              )
-            )}
+              );
+
+            })}
+
           </select>
+
         </div>
+
       </div>
 
       {/* ============================== */}
@@ -1047,6 +1156,7 @@ function ProductForm({
 }
 
 export default ProductForm;
+
 
 
 

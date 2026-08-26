@@ -5,28 +5,20 @@
 // ======================================================
 
 export const getDepartments = async () => {
-
-    const response =
-        await api.get(
-            "/categories/departments"
-        );
-
+    const response = await api.get("/departments");
     return response.data;
 };
+
 
 // ======================================================
 // GET ALL CATEGORIES
 // ======================================================
 
 export const getCategories = async () => {
-
-    const response =
-        await api.get(
-            "/categories"
-        );
-
+    const response = await api.get("/categories");
     return response.data;
 };
+
 
 // ======================================================
 // GET CATEGORIES BY DEPARTMENT
@@ -35,81 +27,64 @@ export const getCategories = async () => {
 export const getCategoriesByDepartment = async (
     department
 ) => {
-
-    if (!department) {
-        return [];
-    }
-
-    const response =
-        await api.get(
-            `/categories/department/${encodeURIComponent(
-                department
-            )}`
-        );
+    const response = await api.get(
+        `/categories/department/${encodeURIComponent(department)}`
+    );
 
     return response.data;
 };
 
+
 // ======================================================
-// GET SUBCATEGORIES BY CATEGORY
+// GET SUBCATEGORIES BY CATEGORY NAME
 // ======================================================
 
 export const getSubcategories = async (
-    category
+    categoryName
 ) => {
-
-    if (!category) {
-        return [];
-    }
-
-    const response =
-        await api.get(
-            `/categories/${encodeURIComponent(
-                category
-            )}/subcategories`
-        );
+    const response = await api.get(
+        `/categories/${encodeURIComponent(categoryName)}/subcategories`
+    );
 
     return response.data;
 };
 
+
 // ======================================================
-// CREATE CATEGORY
+// CREATE CATEGORY (ADMIN)
 // ======================================================
 
 export const createCategory = async (
     name,
     department
 ) => {
-
-    const response =
-        await api.post(
-            "/categories",
-            {
-                name,
-                department
-            }
-        );
+    const response = await api.post(
+        "/categories",
+        {
+            name,
+            departmentName: department
+        }
+    );
 
     return response.data;
 };
 
+
 // ======================================================
-// CREATE SUBCATEGORY
+// CREATE SUBCATEGORY (ADMIN)
 // ======================================================
 
 export const createSubcategory = async (
     category,
     name
 ) => {
-
-    const response =
-        await api.post(
-            "/categories/subcategory",
-            {
-                category,
-                name
-            }
-        );
+    const response = await api.post(
+        "/categories/subcategory",
+        {
+            category,
+            name
+        }
+    );
 
     return response.data;
 };
