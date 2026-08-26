@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Upload,
   X,
@@ -22,14 +22,14 @@ function ProductForm({
   } = useProducts();
 
   const {
-  departments,
-  categories,
-  subcategories,
-  loadCategoriesByDepartment,
-  loadSubcategories,
-  loadingDepartments,
-  loadingCategories,
-  loadingSubcategories,
+    departments,
+    categories,
+    subcategories,
+    loadCategoriesByDepartment,
+    loadSubcategories,
+    loadingDepartments,
+    loadingCategories,
+    loadingSubcategories,
 } = useCategories();
 
   const isEditing = Boolean(product);
@@ -147,31 +147,40 @@ function ProductForm({
    * Handle normal form fields.
    */
   const handleChange = (event) => {
+
     const {
       name,
       value,
     } = event.target;
 
-    /*
-     * If the category changes, reset the
-     * previously selected subcategory.
-     */
-    if(name==="category"){
+    // Department changes control the category list.
+    if (name === "department") {
 
-
-    setFormData(current=>({
+      setFormData((current) => ({
         ...current,
-        category:value,
-        subcategory:""
-    }));
+        department: value,
+        category: "",
+        subcategory: "",
+      }));
 
+      loadCategoriesByDepartment(value);
 
-    loadSubcategories(value);
+      return;
+    }
 
+    // Category changes control the subcategory list.
+    if (name === "category") {
 
-    return;
+      setFormData((current) => ({
+        ...current,
+        category: value,
+        subcategory: "",
+      }));
 
-}
+      loadSubcategories(value);
+
+      return;
+    }
 
     setFormData((current) => ({
       ...current,
@@ -1038,6 +1047,7 @@ function ProductForm({
 }
 
 export default ProductForm;
+
 
 
 

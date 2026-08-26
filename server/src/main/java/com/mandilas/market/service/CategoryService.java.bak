@@ -27,49 +27,31 @@ public class CategoryService {
         this.subcategoryRepository = subcategoryRepository;
     }
 
-    // =========================================================
-    // GET ALL ACTIVE DEPARTMENTS
-    // =========================================================
-
-    public List<Department> getDepartments() {
-
-        return departmentRepository
-                .findByActiveTrueOrderByNameAsc();
-    }
 
     // =========================================================
     // GET ALL ACTIVE CATEGORIES
     // =========================================================
 
-    public List<Category> getCategories() {
-
-        return categoryRepository
-                .findByActiveTrueOrderByNameAsc();
-    }
-
-    // =========================================================
-    // GET CATEGORIES BY DEPARTMENT
-    // =========================================================
-
     public List<Category> getCategoriesByDepartment(
-            String department
+        String department
+) {
+
+    if (
+            department == null ||
+            department.isBlank()
     ) {
-
-        if (
-                department == null ||
-                department.isBlank()
-        ) {
-
-            throw new RuntimeException(
-                    "Department is required"
-            );
-        }
-
-        return categoryRepository
-                .findByDepartment_NameIgnoreCaseAndActiveTrueOrderByNameAsc(
-                        department.trim()
-                );
+        throw new RuntimeException(
+                "Department is required"
+        );
     }
+
+    return categoryRepository
+            .findByDepartment_NameIgnoreCaseAndActiveTrueOrderByNameAsc(
+                    department.trim()
+            );
+}
+
+
 
     // =========================================================
     // GET SUBCATEGORIES BY CATEGORY
@@ -79,11 +61,7 @@ public class CategoryService {
             String category
     ) {
 
-        if (
-                category == null ||
-                category.isBlank()
-        ) {
-
+        if (category == null || category.isBlank()) {
             throw new RuntimeException(
                     "Category name is required"
             );
@@ -95,6 +73,7 @@ public class CategoryService {
                 );
     }
 
+
     // =========================================================
     // GET SUBCATEGORIES BY CATEGORY ID
     // =========================================================
@@ -104,7 +83,6 @@ public class CategoryService {
     ) {
 
         if (categoryId == null) {
-
             throw new RuntimeException(
                     "Category ID is required"
             );
@@ -116,8 +94,10 @@ public class CategoryService {
                 );
     }
 
+
     // =========================================================
     // CREATE CATEGORY
+    // DEPARTMENT → CATEGORY
     // =========================================================
 
     public Category createCategory(
@@ -125,10 +105,7 @@ public class CategoryService {
             String departmentName
     ) {
 
-        if (
-                name == null ||
-                name.isBlank()
-        ) {
+        if (name == null || name.isBlank()) {
 
             throw new RuntimeException(
                     "Category name is required"
@@ -151,6 +128,11 @@ public class CategoryService {
         String cleanDepartment =
                 departmentName.trim();
 
+
+        // -----------------------------------------------------
+        // CHECK IF CATEGORY ALREADY EXISTS
+        // -----------------------------------------------------
+
         if (
                 categoryRepository
                         .existsByNameIgnoreCase(cleanName)
@@ -160,6 +142,11 @@ public class CategoryService {
                     "Category already exists"
             );
         }
+
+
+        // -----------------------------------------------------
+        // FIND DEPARTMENT
+        // -----------------------------------------------------
 
         Department department =
                 departmentRepository
@@ -173,21 +160,30 @@ public class CategoryService {
                                 )
                         );
 
+
+        // -----------------------------------------------------
+        // CREATE CATEGORY
+        // -----------------------------------------------------
+
         Category category =
                 new Category(
                         cleanName,
                         department
                 );
 
+
         category.setActive(true);
+
 
         return categoryRepository.save(
                 category
         );
     }
 
+
     // =========================================================
     // CREATE SUBCATEGORY
+    // CATEGORY → SUBCATEGORY
     // =========================================================
 
     public Subcategory createSubcategory(
@@ -215,11 +211,17 @@ public class CategoryService {
             );
         }
 
+
         String cleanCategoryName =
                 categoryName.trim();
 
         String cleanSubcategoryName =
                 subcategoryName.trim();
+
+
+        // -----------------------------------------------------
+        // FIND CATEGORY
+        // -----------------------------------------------------
 
         Category category =
                 categoryRepository
@@ -232,6 +234,11 @@ public class CategoryService {
                                                 + cleanCategoryName
                                 )
                         );
+
+
+        // -----------------------------------------------------
+        // CHECK DUPLICATE SUBCATEGORY
+        // -----------------------------------------------------
 
         if (
                 subcategoryRepository
@@ -246,6 +253,11 @@ public class CategoryService {
             );
         }
 
+
+        // -----------------------------------------------------
+        // CREATE SUBCATEGORY
+        // -----------------------------------------------------
+
         Subcategory subcategory =
                 new Subcategory();
 
@@ -258,6 +270,7 @@ public class CategoryService {
         );
 
         subcategory.setActive(true);
+
 
         return subcategoryRepository.save(
                 subcategory

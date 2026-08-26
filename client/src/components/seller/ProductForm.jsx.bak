@@ -22,12 +22,15 @@ function ProductForm({
   } = useProducts();
 
   const {
- categories,
- subcategories,
- loadSubcategories
-}
-=
-useCategories();
+  departments,
+  categories,
+  subcategories,
+  loadCategoriesByDepartment,
+  loadSubcategories,
+  loadingDepartments,
+  loadingCategories,
+  loadingSubcategories,
+} = useCategories();
 
   const isEditing = Boolean(product);
 
@@ -36,7 +39,8 @@ useCategories();
     description: "",
     price: "",
     stock: "",
-    category: "",
+    department: "",
+        category: "",
     subcategory: "",
     brand: "",
     sku: "",
@@ -69,6 +73,7 @@ useCategories();
         description: "",
         price: "",
         stock: "",
+        department: "",
         category: "",
         subcategory: "",
         brand: "",
@@ -94,6 +99,7 @@ useCategories();
       description: product.description ?? "",
       price: product.price ?? "",
       stock: product.stock ?? "",
+      department: product.department ?? "",
       category: product.category ?? "",
       subcategory: product.subcategory ?? "",
       brand: product.brand ?? "",
@@ -1032,3 +1038,12 @@ useCategories();
 }
 
 export default ProductForm;
+
+
+
+
+
+
+
+
+

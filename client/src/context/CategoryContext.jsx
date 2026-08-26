@@ -1,4 +1,4 @@
-import {
+﻿import {
     createContext,
     useContext,
     useEffect,
@@ -6,26 +6,57 @@ import {
 } from "react";
 
 import {
-    getCategories,
-    getSubcategories,
     getDepartments,
-    getCategoriesByDepartment
+    getCategories,
+    getCategoriesByDepartment,
+    getSubcategories
 } from "../services/categoryService";
 
-const CategoryContext = createContext();
+const CategoryContext =
+    createContext(null);
 
-export function CategoryProvider({ children }) {
+export function CategoryProvider({
+    children
+}) {
 
-    const [departments, setDepartments] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [subcategories, setSubcategories] = useState([]);
+    const [
+        departments,
+        setDepartments
+    ] = useState([]);
 
-    const [loadingDepartments, setLoadingDepartments] = useState(false);
-    const [loadingCategories, setLoadingCategories] = useState(false);
-    const [loadingSubcategories, setLoadingSubcategories] = useState(false);
+    const [
+        categories,
+        setCategories
+    ] = useState([]);
+
+    const [
+        subcategories,
+        setSubcategories
+    ] = useState([]);
+
+    const [
+        loadingDepartments,
+        setLoadingDepartments
+    ] = useState(false);
+
+    const [
+        loadingCategories,
+        setLoadingCategories
+    ] = useState(false);
+
+    const [
+        loadingSubcategories,
+        setLoadingSubcategories
+    ] = useState(false);
+
+    // ======================================================
+    // LOAD DEPARTMENTS
+    // ======================================================
 
     useEffect(() => {
+
         loadDepartments();
+
     }, []);
 
     async function loadDepartments() {
@@ -34,7 +65,8 @@ export function CategoryProvider({ children }) {
 
             setLoadingDepartments(true);
 
-            const data = await getDepartments();
+            const data =
+                await getDepartments();
 
             setDepartments(
                 Array.isArray(data)
@@ -57,6 +89,45 @@ export function CategoryProvider({ children }) {
 
         }
     }
+
+    // ======================================================
+    // LOAD ALL CATEGORIES
+    // ======================================================
+
+    async function loadAllCategories() {
+
+        try {
+
+            setLoadingCategories(true);
+
+            const data =
+                await getCategories();
+
+            setCategories(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load categories:",
+                error
+            );
+
+            setCategories([]);
+
+        } finally {
+
+            setLoadingCategories(false);
+
+        }
+    }
+
+    // ======================================================
+    // LOAD CATEGORIES BY DEPARTMENT
+    // ======================================================
 
     async function loadCategoriesByDepartment(
         department
@@ -104,6 +175,10 @@ export function CategoryProvider({ children }) {
         }
     }
 
+    // ======================================================
+    // LOAD SUBCATEGORIES
+    // ======================================================
+
     async function loadSubcategories(
         category
     ) {
@@ -149,13 +224,14 @@ export function CategoryProvider({ children }) {
     }
 
     return (
-
         <CategoryContext.Provider
             value={{
                 departments,
                 categories,
                 subcategories,
 
+                loadDepartments,
+                loadAllCategories,
                 loadCategoriesByDepartment,
                 loadSubcategories,
 
@@ -164,11 +240,8 @@ export function CategoryProvider({ children }) {
                 loadingSubcategories
             }}
         >
-
             {children}
-
         </CategoryContext.Provider>
-
     );
 }
 
@@ -177,5 +250,4 @@ export function useCategories() {
     return useContext(
         CategoryContext
     );
-
 }

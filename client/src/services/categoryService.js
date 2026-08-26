@@ -1,5 +1,4 @@
-import api from "./api";
-
+﻿import api from "./api";
 
 // ======================================================
 // GET ALL DEPARTMENTS
@@ -15,7 +14,6 @@ export const getDepartments = async () => {
     return response.data;
 };
 
-
 // ======================================================
 // GET ALL CATEGORIES
 // ======================================================
@@ -30,7 +28,6 @@ export const getCategories = async () => {
     return response.data;
 };
 
-
 // ======================================================
 // GET CATEGORIES BY DEPARTMENT
 // ======================================================
@@ -39,34 +36,44 @@ export const getCategoriesByDepartment = async (
     department
 ) => {
 
+    if (!department) {
+        return [];
+    }
+
     const response =
         await api.get(
-            `/categories/department/${encodeURIComponent(department)}`
+            `/categories/department/${encodeURIComponent(
+                department
+            )}`
         );
 
     return response.data;
 };
 
-
 // ======================================================
-// GET SUBCATEGORIES BY CATEGORY NAME
+// GET SUBCATEGORIES BY CATEGORY
 // ======================================================
 
 export const getSubcategories = async (
-    categoryName
+    category
 ) => {
+
+    if (!category) {
+        return [];
+    }
 
     const response =
         await api.get(
-            `/categories/${encodeURIComponent(categoryName)}/subcategories`
+            `/categories/${encodeURIComponent(
+                category
+            )}/subcategories`
         );
 
     return response.data;
 };
 
-
 // ======================================================
-// CREATE CATEGORY (ADMIN)
+// CREATE CATEGORY
 // ======================================================
 
 export const createCategory = async (
@@ -79,16 +86,15 @@ export const createCategory = async (
             "/categories",
             {
                 name,
-                departmentName: department
+                department
             }
         );
 
     return response.data;
 };
 
-
 // ======================================================
-// CREATE SUBCATEGORY (ADMIN)
+// CREATE SUBCATEGORY
 // ======================================================
 
 export const createSubcategory = async (

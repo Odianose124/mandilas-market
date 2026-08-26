@@ -1,7 +1,6 @@
 package com.mandilas.market.controller;
 
 import com.mandilas.market.model.Category;
-import com.mandilas.market.model.Department;
 import com.mandilas.market.model.Subcategory;
 import com.mandilas.market.service.CategoryService;
 import org.springframework.http.ResponseEntity;
@@ -22,17 +21,6 @@ public class CategoryController {
         this.categoryService = categoryService;
     }
 
-    // =========================================================
-    // GET ALL ACTIVE DEPARTMENTS
-    // =========================================================
-
-    @GetMapping("/departments")
-    public ResponseEntity<List<Department>> getDepartments() {
-
-        return ResponseEntity.ok(
-                categoryService.getDepartments()
-        );
-    }
 
     // =========================================================
     // GET ALL ACTIVE CATEGORIES
@@ -46,70 +34,35 @@ public class CategoryController {
         );
     }
 
-    // =========================================================
-    // GET CATEGORIES BY DEPARTMENT
-    // =========================================================
-
-    @GetMapping("/department/{department}")
-    public ResponseEntity<?> getCategoriesByDepartment(
-            @PathVariable String department
-    ) {
-
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService
-                            .getCategoriesByDepartment(
-                                    department
-                            )
-            );
-
-        } catch (RuntimeException e) {
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(
-                            Map.of(
-                                    "error",
-                                    e.getMessage()
-                            )
-                    );
-        }
-    }
 
     // =========================================================
     // GET SUBCATEGORIES BY CATEGORY
     // =========================================================
 
     @GetMapping("/{category}/subcategories")
-    public ResponseEntity<?> getSubcategories(
+    public ResponseEntity<List<Subcategory>> getSubcategories(
             @PathVariable String category
     ) {
 
-        try {
-
-            return ResponseEntity.ok(
-                    categoryService
-                            .getSubcategories(
-                                    category
-                            )
-            );
-
-        } catch (RuntimeException e) {
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(
-                            Map.of(
-                                    "error",
-                                    e.getMessage()
-                            )
-                    );
-        }
+        return ResponseEntity.ok(
+                categoryService.getSubcategories(
+                        category
+                )
+        );
     }
+
 
     // =========================================================
     // CREATE CATEGORY
+    // =========================================================
+    //
+    // Expected request:
+    //
+    // {
+    //     "name": "Men's Wear",
+    //     "department": "Fashion"
+    // }
+    //
     // =========================================================
 
     @PostMapping
@@ -125,11 +78,13 @@ public class CategoryController {
             String department =
                     body.get("department");
 
+
             Category category =
                     categoryService.createCategory(
                             name,
                             department
                     );
+
 
             return ResponseEntity.ok(
                     category
@@ -148,8 +103,18 @@ public class CategoryController {
         }
     }
 
+
     // =========================================================
     // CREATE SUBCATEGORY
+    // =========================================================
+    //
+    // Expected request:
+    //
+    // {
+    //     "category": "Men's Wear",
+    //     "name": "Shirts"
+    // }
+    //
     // =========================================================
 
     @PostMapping("/subcategory")
@@ -165,11 +130,13 @@ public class CategoryController {
             String name =
                     body.get("name");
 
+
             Subcategory subcategory =
                     categoryService.createSubcategory(
                             category,
                             name
                     );
+
 
             return ResponseEntity.ok(
                     subcategory
