@@ -2,25 +2,21 @@
 
 /*
  * ============================================================
- * DEPARTMENT API
+ * GET ALL DEPARTMENTS
  * ============================================================
  *
- * The backend exposes:
+ * Backend:
  *
- * GET /api/departments
+ * GET /api/categories/departments
  *
- * api.js automatically provides the /api prefix.
- *
- * Therefore we use:
- *
- * api.get("/departments")
+ * api.js already provides the /api prefix.
  *
  * ============================================================
  */
 
 export const getDepartments = async () => {
   const response = await api.get(
-    "/departments"
+    "/categories/departments"
   );
 
   return response.data;
@@ -30,12 +26,6 @@ export const getDepartments = async () => {
 /*
  * ============================================================
  * GET ALL CATEGORIES
- * ============================================================
- *
- * Backend:
- *
- * GET /api/categories
- *
  * ============================================================
  */
 
@@ -112,15 +102,6 @@ export const getSubcategories = async (
  * ============================================================
  * CREATE CATEGORY — ADMIN
  * ============================================================
- *
- * Backend accepts:
- *
- * {
- *   name,
- *   departmentName
- * }
- *
- * ============================================================
  */
 
 export const createCategory = async (
@@ -143,12 +124,6 @@ export const createCategory = async (
 /*
  * ============================================================
  * CREATE SUBCATEGORY — ADMIN
- * ============================================================
- *
- * Backend:
- *
- * POST /api/categories/subcategory
- *
  * ============================================================
  */
 

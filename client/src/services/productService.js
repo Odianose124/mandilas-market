@@ -413,11 +413,13 @@ export async function deleteProduct(id) {
  * =========================================================
  */
 
-export async function getProductsBySeller() {
-  const sellerEmail =
-    getSellerEmail();
+export async function getProductsBySeller(
+  sellerEmail
+) {
+  const email =
+    sellerEmail?.trim() || getSellerEmail();
 
-  if (!sellerEmail) {
+  if (!email) {
     throw new Error(
       "Please login as a seller."
     );
@@ -426,7 +428,7 @@ export async function getProductsBySeller() {
   const response =
     await fetch(
       `${API_URL}/seller?email=${encodeURIComponent(
-        sellerEmail
+        email
       )}`
     );
 

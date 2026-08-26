@@ -50,11 +50,14 @@ function Dashboard() {
       setLoading(true);
       setError("");
 
-      const [sellerProducts, sellerOrders] =
-        await Promise.all([
-          getSellerProducts(user.email),
-          getOrdersBySellerEmail(user.email),
-        ]);
+      const sellerEmail =
+  user.email.trim().toLowerCase();
+
+const [sellerProducts, sellerOrders] =
+  await Promise.all([
+    getSellerProducts(sellerEmail),
+    getOrdersBySellerEmail(sellerEmail),
+  ]);
 
       setProducts(
         Array.isArray(sellerProducts)
