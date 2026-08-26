@@ -32,23 +32,6 @@ export const getCategories = async () => {
 
 
 // ======================================================
-// GET CATEGORIES BY DEPARTMENT
-// ======================================================
-
-export const getCategoriesByDepartment = async (
-    department
-) => {
-
-    const response =
-        await api.get(
-            `/categories/department/${encodeURIComponent(department)}`
-        );
-
-    return response.data;
-};
-
-
-// ======================================================
 // GET SUBCATEGORIES BY CATEGORY NAME
 // ======================================================
 
@@ -79,7 +62,7 @@ export const createCategory = async (
             "/categories",
             {
                 name,
-                departmentName: department
+                department
             }
         );
 

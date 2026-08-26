@@ -5,96 +5,163 @@ import {
     useState
 } from "react";
 
-
 import {
     getCategories,
-    getSubcategories
+    getSubcategories,
+    getDepartments,
+    getCategoriesByDepartment
 } from "../services/categoryService";
 
+const CategoryContext = createContext();
 
-const CategoryContext =
-    createContext();
+export function CategoryProvider({ children }) {
 
+    const [departments, setDepartments] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [subcategories, setSubcategories] = useState([]);
 
+    const [loadingDepartments, setLoadingDepartments] = useState(false);
+    const [loadingCategories, setLoadingCategories] = useState(false);
+    const [loadingSubcategories, setLoadingSubcategories] = useState(false);
 
-export function CategoryProvider({
-    children
-}){
+    useEffect(() => {
+        loadDepartments();
+    }, []);
 
+    async function loadDepartments() {
 
-    const [
-        categories,
-        setCategories
-    ] = useState([]);
+        try {
 
+            setLoadingDepartments(true);
 
-    const [
-        subcategories,
-        setSubcategories
-    ] = useState([]);
+            const data = await getDepartments();
 
+            setDepartments(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
+        } catch (error) {
 
-    useEffect(()=>{
+            console.error(
+                "Failed to load departments:",
+                error
+            );
 
-        loadCategories();
+            setDepartments([]);
 
-    },[]);
+        } finally {
 
-
-
-    async function loadCategories(){
-
-        try{
-
-            const data =
-                await getCategories();
-
-
-            setCategories(data);
-
-        }
-        catch(error){
-
-            console.error(error);
+            setLoadingDepartments(false);
 
         }
-
     }
 
+    async function loadCategoriesByDepartment(
+        department
+    ) {
 
+        if (!department) {
 
+            setCategories([]);
+            setSubcategories([]);
 
-    async function loadSubcategories(category){
+            return;
+        }
 
-        try{
+        try {
+
+            setLoadingCategories(true);
+
+            setCategories([]);
+            setSubcategories([]);
+
+            const data =
+                await getCategoriesByDepartment(
+                    department
+                );
+
+            setCategories(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Failed to load categories by department:",
+                error
+            );
+
+            setCategories([]);
+
+        } finally {
+
+            setLoadingCategories(false);
+
+        }
+    }
+
+    async function loadSubcategories(
+        category
+    ) {
+
+        if (!category) {
+
+            setSubcategories([]);
+
+            return;
+        }
+
+        try {
+
+            setLoadingSubcategories(true);
+
+            setSubcategories([]);
 
             const data =
                 await getSubcategories(
                     category
                 );
 
+            setSubcategories(
+                Array.isArray(data)
+                    ? data
+                    : []
+            );
 
-            setSubcategories(data);
+        } catch (error) {
+
+            console.error(
+                "Failed to load subcategories:",
+                error
+            );
+
+            setSubcategories([]);
+
+        } finally {
+
+            setLoadingSubcategories(false);
 
         }
-        catch(error){
-
-            console.error(error);
-
-        }
-
     }
-
-
 
     return (
 
         <CategoryContext.Provider
             value={{
+                departments,
                 categories,
                 subcategories,
-                loadSubcategories
+
+                loadCategoriesByDepartment,
+                loadSubcategories,
+
+                loadingDepartments,
+                loadingCategories,
+                loadingSubcategories
             }}
         >
 
@@ -103,13 +170,12 @@ export function CategoryProvider({
         </CategoryContext.Provider>
 
     );
-
 }
 
+export function useCategories() {
 
-
-export function useCategories(){
-
-    return useContext(CategoryContext);
+    return useContext(
+        CategoryContext
+    );
 
 }

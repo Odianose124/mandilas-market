@@ -32,11 +32,25 @@ public class CategoryService {
     // GET ALL ACTIVE CATEGORIES
     // =========================================================
 
-    public List<Category> getCategories() {
+    public List<Category> getCategoriesByDepartment(
+        String department
+) {
 
-        return categoryRepository
-                .findByActiveTrueOrderByNameAsc();
+    if (
+            department == null ||
+            department.isBlank()
+    ) {
+        throw new RuntimeException(
+                "Department is required"
+        );
     }
+
+    return categoryRepository
+            .findByDepartment_NameIgnoreCaseAndActiveTrueOrderByNameAsc(
+                    department.trim()
+            );
+}
+
 
 
     // =========================================================
