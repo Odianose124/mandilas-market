@@ -1,4 +1,9 @@
-﻿import { useEffect, useState } from "react";
+﻿import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   Upload,
   X,
@@ -6,182 +11,764 @@ import {
   Loader2,
 } from "lucide-react";
 
-import { useProducts } from "../../context/ProductContext";
 import {
- useCategories
+  useProducts,
+} from "../../context/ProductContext";
+
+import {
+  useCategories,
 } from "../../context/CategoryContext";
+
+/*
+ * ============================================================
+ * HELPERS
+ * ============================================================
+ */
+
+function getOptionValue(option) {
+  if (typeof option === "string") {
+    return option;
+  }
+
+  return (
+    option?.id ??
+    option?._id ??
+    option?.value ??
+    option?.slug ??
+    option?.name ??
+    ""
+  );
+}
+
+function getOptionLabel(option) {
+  if (typeof option === "string") {
+    return option;
+  }
+
+  return (
+    option?.name ??
+    option?.title ??
+    option?.label ??
+    option?.value ??
+    option?.slug ??
+    option?.id ??
+    option?._id ??
+    ""
+  );
+}
+
+function findOption(options = [], value) {
+  if (
+    value === undefined ||
+    value === null ||
+    value === ""
+  ) {
+    return null;
+  }
+
+  const currentValue = String(value);
+
+  return (
+    options.find((option) => {
+      const optionValue = String(
+        getOptionValue(option)
+      );
+
+      const optionLabel = String(
+        getOptionLabel(option)
+      );
+
+      return (
+        optionValue === currentValue ||
+        optionLabel === currentValue
+      );
+    }) ?? null
+  );
+}
+
+function getEntityId(entity) {
+  if (!entity) {
+    return "";
+  }
+
+  if (typeof entity === "string") {
+    return "";
+  }
+
+  return String(
+    entity.id ??
+      entity._id ??
+      entity.value ??
+      entity.slug ??
+      ""
+  );
+}
+
+function getEntityName(entity) {
+  if (!entity) {
+    return "";
+  }
+
+  if (typeof entity === "string") {
+    return entity;
+  }
+
+  return (
+    entity.name ??
+    entity.title ??
+    entity.label ??
+    entity.value ??
+    entity.slug ??
+    ""
+  );
+}
+
+function normalizeImageUrls(imageUrl) {
+  if (Array.isArray(imageUrl)) {
+    return imageUrl
+      .map((url) => {
+        if (typeof url === "string") {
+          return url.trim();
+        }
+
+        return (
+          url?.url ??
+          url?.secure_url ??
+          ""
+        );
+      })
+      .filter(Boolean);
+  }
+
+  if (typeof imageUrl === "string") {
+    return imageUrl
+      .split(",")
+      .map((url) => url.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+/*
+ * ============================================================
+ * EMPTY FORM
+ * ============================================================
+ */
+
+const EMPTY_FORM_DATA = {
+  name: "",
+  description: "",
+
+  /*
+   * DEPARTMENT
+   *
+   * department = selected department name
+   * departmentId = selected department ID when available
+   */
+  department: "",
+  departmentId: "",
+  departmentName: "",
+
+  /*
+   * CATEGORY
+   */
+  category: "",
+  categoryId: "",
+  categoryName: "",
+
+  /*
+   * SUBCATEGORY
+   */
+  subcategory: "",
+  subcategoryId: "",
+  subcategoryName: "",
+
+  price: "",
+  stock: "",
+
+  brand: "",
+  sku: "",
+
+  discountPrice: "",
+
+  weight: "",
+  deliveryTime: "",
+
+  status: "In Stock",
+
+  specifications: "",
+
+  sellerEmail: "",
+  sellerName: "",
+};
+
+/*
+ * ============================================================
+ * PRODUCT FORM
+ * ============================================================
+ */
 
 function ProductForm({
   product = null,
   onSuccess,
   onCancel,
 }) {
+  /*
+   * ==========================================================
+   * PRODUCT CONTEXT
+   * ==========================================================
+   */
+
   const {
     addProduct,
     updateProduct,
   } = useProducts();
 
+  /*
+   * ==========================================================
+   * CATEGORY CONTEXT
+   * ==========================================================
+   */
+
   const {
-    departments,
-    categories,
-    subcategories,
+    departments = [],
+    categories = [],
+    subcategories = [],
+
     loadCategoriesByDepartment,
     loadSubcategories,
-    loadingDepartments,
-    loadingCategories,
-    loadingSubcategories,
-} = useCategories();
+
+    loadingDepartments = false,
+    loadingCategories = false,
+    loadingSubcategories = false,
+
+    departmentError = "",
+    categoryError = "",
+    subcategoryError = "",
+  } = useCategories();
 
   const isEditing = Boolean(product);
 
-  const [formData, setFormData] = useState({
-    name: "",
-    department: "",
-    description: "",
-    price: "",
-    stock: "",
-    department: "",
-        category: "",
-    subcategory: "",
-    brand: "",
-    sku: "",
-    discountPrice: "",
-    weight: "",
-    deliveryTime: "",
-    status: "In Stock",
-    specifications: "",
-    sellerEmail: "",
-    sellerName: "",
+  /*
+   * ==========================================================
+   * FORM STATE
+   * ==========================================================
+   */
+
+  const [
+    formData,
+    setFormData,
+  ] = useState({
+    ...EMPTY_FORM_DATA,
   });
 
-  const [images, setImages] = useState([]);
-  const [video, setVideo] = useState(null);
+  /*
+   * ==========================================================
+   * MEDIA STATE
+   * ==========================================================
+   */
 
-  const [existingImageUrls, setExistingImageUrls] =
-    useState([]);
+  const [
+    images,
+    setImages,
+  ] = useState([]);
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [
+    video,
+    setVideo,
+  ] = useState(null);
+
+  const [
+    existingImageUrls,
+    setExistingImageUrls,
+  ] = useState([]);
 
   /*
-   * Load existing product information
-   * when editing a product.
+   * ==========================================================
+   * GENERAL STATE
+   * ==========================================================
    */
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  /*
+   * ==========================================================
+   * IMAGE PREVIEWS
+   * ==========================================================
+   */
+
+  const imagePreviews = useMemo(() => {
+    return images.map((image) =>
+      URL.createObjectURL(image)
+    );
+  }, [images]);
+
+  /*
+   * ==========================================================
+   * CLEAN IMAGE PREVIEW URLS
+   * ==========================================================
+   */
+
+  useEffect(() => {
+    return () => {
+      imagePreviews.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, [imagePreviews]);
+
+  /*
+   * ==========================================================
+   * LOAD EXISTING PRODUCT
+   * ==========================================================
+   */
+
   useEffect(() => {
     if (!product) {
       setFormData({
-        name: "",
-    department: "",
-    description: "",
-        price: "",
-        stock: "",
-        department: "",
-        category: "",
-        subcategory: "",
-        brand: "",
-        sku: "",
-        discountPrice: "",
-        weight: "",
-        deliveryTime: "",
-        status: "In Stock",
-        specifications: "",
-        sellerEmail: "",
-        sellerName: "",
+        ...EMPTY_FORM_DATA,
       });
 
       setImages([]);
+      setVideo([]);
       setVideo(null);
       setExistingImageUrls([]);
+      setError("");
 
       return;
     }
 
+    /*
+     * --------------------------------------------------------
+     * DEPARTMENT
+     * --------------------------------------------------------
+     */
+
+    const departmentObject =
+      typeof product.department === "object"
+        ? product.department
+        : null;
+
+    const existingDepartmentId =
+      product.departmentId ??
+      getEntityId(departmentObject);
+
+    const existingDepartmentName =
+      product.departmentName ||
+      getEntityName(departmentObject) ||
+      (typeof product.department === "string"
+        ? product.department
+        : "");
+
+    /*
+     * --------------------------------------------------------
+     * CATEGORY
+     * --------------------------------------------------------
+     */
+
+    const categoryObject =
+      typeof product.category === "object"
+        ? product.category
+        : null;
+
+    const existingCategoryId =
+      product.categoryId ??
+      getEntityId(categoryObject);
+
+    const existingCategoryName =
+      product.categoryName ||
+      getEntityName(categoryObject) ||
+      (typeof product.category === "string"
+        ? product.category
+        : "");
+
+    /*
+     * --------------------------------------------------------
+     * SUBCATEGORY
+     * --------------------------------------------------------
+     */
+
+    const subcategoryObject =
+      typeof product.subcategory === "object"
+        ? product.subcategory
+        : null;
+
+    const existingSubcategoryId =
+      product.subcategoryId ??
+      getEntityId(subcategoryObject);
+
+    const existingSubcategoryName =
+      product.subcategoryName ||
+      getEntityName(subcategoryObject) ||
+      (typeof product.subcategory === "string"
+        ? product.subcategory
+        : "");
+
+    /*
+     * --------------------------------------------------------
+     * SET FORM
+     * --------------------------------------------------------
+     */
+
     setFormData({
       name: product.name ?? "",
-      department: product.department ?? "",
-      description: product.description ?? "",
-      price: product.price ?? "",
-      stock: product.stock ?? "",
-      department: product.department ?? "",
-      category: product.category ?? "",
-      subcategory: product.subcategory ?? "",
-      brand: product.brand ?? "",
-      sku: product.sku ?? "",
-      discountPrice: product.discountPrice ?? "",
-      weight: product.weight ?? "",
-      deliveryTime: product.deliveryTime ?? "",
-      status: product.status ?? "In Stock",
+
+      description:
+        product.description ?? "",
+
+      /*
+       * IMPORTANT:
+       * department contains the actual department NAME.
+       */
+      department:
+        existingDepartmentName,
+
+      departmentId:
+        existingDepartmentId,
+
+      departmentName:
+        existingDepartmentName,
+
+      category:
+        existingCategoryName,
+
+      categoryId:
+        existingCategoryId,
+
+      categoryName:
+        existingCategoryName,
+
+      subcategory:
+        existingSubcategoryName,
+
+      subcategoryId:
+        existingSubcategoryId,
+
+      subcategoryName:
+        existingSubcategoryName,
+
+      price:
+        product.price ?? "",
+
+      stock:
+        product.stock ?? "",
+
+      brand:
+        product.brand ?? "",
+
+      sku:
+        product.sku ?? "",
+
+      discountPrice:
+        product.discountPrice ?? "",
+
+      weight:
+        product.weight ?? "",
+
+      deliveryTime:
+        product.deliveryTime ?? "",
+
+      status:
+        product.status ?? "In Stock",
+
       specifications:
-        product.specifications ?? "",
+        typeof product.specifications ===
+        "string"
+          ? product.specifications
+          : product.specifications
+            ? JSON.stringify(
+                product.specifications,
+                null,
+                2
+              )
+            : "",
+
       sellerEmail:
         product.sellerEmail ?? "",
+
       sellerName:
         product.sellerName ?? "",
     });
 
     /*
-     * Backend currently returns imageUrl.
-     *
-     * Multiple image URLs are stored as
-     * comma-separated values.
+     * --------------------------------------------------------
+     * EXISTING IMAGES
+     * --------------------------------------------------------
      */
-    if (product.imageUrl) {
-      setExistingImageUrls(
-        product.imageUrl
-          .split(",")
-          .map((url) => url.trim())
-          .filter(Boolean)
-      );
-    } else {
-      setExistingImageUrls([]);
-    }
+
+    setExistingImageUrls(
+      normalizeImageUrls(
+        product.imageUrl ??
+          product.images
+      )
+    );
 
     setImages([]);
     setVideo(null);
-  }, [product]);
+    setError("");
+
+    /*
+     * --------------------------------------------------------
+     * LOAD CATEGORY HIERARCHY
+     * --------------------------------------------------------
+     */
+
+    if (existingDepartmentName) {
+      loadCategoriesByDepartment(
+        existingDepartmentName
+      );
+    }
+
+    if (existingCategoryName) {
+      loadSubcategories(
+        existingCategoryName
+      );
+    }
+  }, [
+    product,
+    loadCategoriesByDepartment,
+    loadSubcategories,
+  ]);
 
   /*
-   * Find the selected category from the
-   * central categories.js file.
+   * ==========================================================
+   * DEPARTMENT CHANGE
+   * ==========================================================
    */
-  
+
+  const handleDepartmentChange = (
+    event
+  ) => {
+    const selectedValue =
+      event.target.value;
+
+    const selectedDepartment =
+      findOption(
+        departments,
+        selectedValue
+      );
+
+    const departmentName =
+      selectedDepartment
+        ? getOptionLabel(
+            selectedDepartment
+          )
+        : "";
+
+    const departmentId =
+      selectedDepartment
+        ? getOptionValue(
+            selectedDepartment
+          )
+        : "";
+
+    /*
+     * Store BOTH:
+     *
+     * department = department name
+     * departmentName = department name
+     *
+     * This guarantees the product payload
+     * contains the correct backend field.
+     */
+
+    setFormData((current) => ({
+      ...current,
+
+      department:
+        departmentName,
+
+      departmentId:
+        departmentId,
+
+      departmentName:
+        departmentName,
+
+      /*
+       * Changing department resets category.
+       */
+
+      category: "",
+      categoryId: "",
+      categoryName: "",
+
+      /*
+       * Changing department also resets
+       * subcategory.
+       */
+
+      subcategory: "",
+      subcategoryId: "",
+      subcategoryName: "",
+    }));
+
+    setError("");
+
+    if (!departmentName) {
+      return;
+    }
+
+    /*
+     * Load categories belonging ONLY
+     * to the selected department.
+     */
+
+    loadCategoriesByDepartment(
+      departmentName
+    );
+  };
 
   /*
-   * Handle normal form fields.
+   * ==========================================================
+   * CATEGORY CHANGE
+   * ==========================================================
    */
-  const handleChange = (event) => {
 
+  const handleCategoryChange = (
+    event
+  ) => {
+    const selectedValue =
+      event.target.value;
+
+    const selectedCategory =
+      findOption(
+        categories,
+        selectedValue
+      );
+
+    const categoryName =
+      selectedCategory
+        ? getOptionLabel(
+            selectedCategory
+          )
+        : "";
+
+    const categoryId =
+      selectedCategory
+        ? getOptionValue(
+            selectedCategory
+          )
+        : "";
+
+    setFormData((current) => ({
+      ...current,
+
+      category:
+        categoryName,
+
+      categoryId:
+        categoryId,
+
+      categoryName:
+        categoryName,
+
+      /*
+       * Reset subcategory whenever
+       * category changes.
+       */
+
+      subcategory: "",
+      subcategoryId: "",
+      subcategoryName: "",
+    }));
+
+    setError("");
+
+    if (!categoryName) {
+      return;
+    }
+
+    /*
+     * Load subcategories for the
+     * selected category.
+     */
+
+    loadSubcategories(
+      categoryName
+    );
+  };
+
+  /*
+   * ==========================================================
+   * SUBCATEGORY CHANGE
+   * ==========================================================
+   */
+
+  const handleSubcategoryChange = (
+    event
+  ) => {
+    const selectedValue =
+      event.target.value;
+
+    const selectedSubcategory =
+      findOption(
+        subcategories,
+        selectedValue
+      );
+
+    const subcategoryName =
+      selectedSubcategory
+        ? getOptionLabel(
+            selectedSubcategory
+          )
+        : "";
+
+    const subcategoryId =
+      selectedSubcategory
+        ? getOptionValue(
+            selectedSubcategory
+          )
+        : "";
+
+    setFormData((current) => ({
+      ...current,
+
+      subcategory:
+        subcategoryName,
+
+      subcategoryId:
+        subcategoryId,
+
+      subcategoryName:
+        subcategoryName,
+    }));
+
+    setError("");
+  };
+
+  /*
+   * ==========================================================
+   * NORMAL INPUT CHANGE
+   * ==========================================================
+   */
+
+  const handleChange = (
+    event
+  ) => {
     const {
       name,
       value,
     } = event.target;
 
-    // Department changes control the category list.
-    if (name === "department") {
+    /*
+     * These are controlled by their
+     * dedicated handlers.
+     */
 
-      setFormData((current) => ({
-        ...current,
-        department: value,
-        category: "",
-        subcategory: "",
-      }));
-
-      loadCategoriesByDepartment(value);
-
-      return;
-    }
-
-    // Category changes control the subcategory list.
-    if (name === "category") {
-
-      setFormData((current) => ({
-        ...current,
-        category: value,
-        subcategory: "",
-      }));
-
-      loadSubcategories(value);
-
+    if (
+      name === "department" ||
+      name === "category" ||
+      name === "subcategory"
+    ) {
       return;
     }
 
@@ -192,31 +779,50 @@ function ProductForm({
   };
 
   /*
-   * Handle product images.
+   * ==========================================================
+   * IMAGE UPLOAD
+   * ==========================================================
    */
-  const handleImagesChange = (event) => {
-    const selectedFiles = Array.from(
-      event.target.files || []
-    );
 
-    if (selectedFiles.length === 0) {
+  const handleImagesChange = (
+    event
+  ) => {
+    const selectedFiles =
+      Array.from(
+        event.target.files || []
+      );
+
+    if (
+      selectedFiles.length === 0
+    ) {
       return;
     }
 
-    const imageFiles = selectedFiles.filter(
-      (file) =>
-        file.type &&
-        file.type.startsWith("image/")
-    );
+    const imageFiles =
+      selectedFiles.filter(
+        (file) =>
+          file.type &&
+          file.type.startsWith(
+            "image/"
+          )
+      );
 
-    if (imageFiles.length === 0) {
+    if (
+      imageFiles.length === 0
+    ) {
       setError(
         "Please select valid image files."
       );
 
       event.target.value = "";
+
       return;
     }
+
+    /*
+     * Keep the image upload behavior
+     * that was already working for you.
+     */
 
     setImages((current) => [
       ...current,
@@ -225,43 +831,57 @@ function ProductForm({
 
     setError("");
 
-    /*
-     * Allows the same file to be selected again.
-     */
     event.target.value = "";
   };
 
   /*
-   * Remove newly selected image.
+   * ==========================================================
+   * REMOVE NEW IMAGE
+   * ==========================================================
    */
-  const removeImage = (index) => {
-    setImages((current) =>
-      current.filter(
-        (_, imageIndex) =>
-          imageIndex !== index
-      )
+
+  const removeImage = (
+    index
+  ) => {
+    setImages(
+      (current) =>
+        current.filter(
+          (_, imageIndex) =>
+            imageIndex !== index
+        )
     );
   };
 
   /*
-   * Remove an existing image from
-   * the edit screen.
+   * ==========================================================
+   * REMOVE EXISTING IMAGE
+   * ==========================================================
    */
-  const removeExistingImage = (index) => {
-    setExistingImageUrls((current) =>
-      current.filter(
-        (_, imageIndex) =>
-          imageIndex !== index
-      )
+
+  const removeExistingImage = (
+    index
+  ) => {
+    setExistingImageUrls(
+      (current) =>
+        current.filter(
+          (_, imageIndex) =>
+            imageIndex !== index
+        )
     );
   };
 
   /*
-   * Handle product video.
+   * ==========================================================
+   * VIDEO UPLOAD
+   * ==========================================================
    */
-  const handleVideoChange = (event) => {
+
+  const handleVideoChange = (
+    event
+  ) => {
     const selectedVideo =
-      event.target.files?.[0] || null;
+      event.target.files?.[0] ||
+      null;
 
     if (!selectedVideo) {
       return;
@@ -269,13 +889,16 @@ function ProductForm({
 
     if (
       !selectedVideo.type ||
-      !selectedVideo.type.startsWith("video/")
+      !selectedVideo.type.startsWith(
+        "video/"
+      )
     ) {
       setError(
         "Please select a valid video file."
       );
 
       event.target.value = "";
+
       return;
     }
 
@@ -286,62 +909,125 @@ function ProductForm({
   };
 
   /*
-   * Remove selected video.
+   * ==========================================================
+   * REMOVE VIDEO
+   * ==========================================================
    */
+
   const removeVideo = () => {
     setVideo(null);
   };
 
   /*
-   * Validate the form before submission.
+   * ==========================================================
+   * VALIDATE FORM
+   * ==========================================================
    */
+
   const validateForm = () => {
-    if (!formData.name.trim()) {
-      return "Product name is required.";
+    if (
+      !formData.name.trim()
+    ) {
+      return (
+        "Product name is required."
+      );
     }
 
-    if (!formData.description.trim()) {
-      return "Product description is required.";
+    if (
+      !formData.description.trim()
+    ) {
+      return (
+        "Product description is required."
+      );
+    }
+
+    /*
+     * DEPARTMENT IS REQUIRED
+     *
+     * This is the field that was causing
+     * your current 400 error.
+     */
+
+    if (
+      !formData.department.trim()
+    ) {
+      return (
+        "Please select a department."
+      );
+    }
+
+    /*
+     * CATEGORY
+     */
+
+    if (
+      !formData.category.trim()
+    ) {
+      return (
+        "Please select a category."
+      );
+    }
+
+    /*
+     * SUBCATEGORY
+     */
+
+    if (
+      !formData.subcategory.trim()
+    ) {
+      return (
+        "Please select a subcategory."
+      );
     }
 
     if (
       formData.price === "" ||
       Number(formData.price) <= 0
     ) {
-      return "Please enter a valid product price.";
+      return (
+        "Please enter a valid product price."
+      );
     }
 
     if (
       formData.stock === "" ||
       Number(formData.stock) < 0
     ) {
-      return "Please enter a valid stock quantity.";
+      return (
+        "Please enter a valid stock quantity."
+      );
     }
 
-    if (!formData.department) {
-      return "Please select a department.";
+    if (
+      formData.discountPrice !== "" &&
+      Number(formData.discountPrice) < 0
+    ) {
+      return (
+        "Discount price cannot be negative."
+      );
     }
 
-    if (!formData.category) {
-      return "Please select a category.";
+    if (
+      !formData.sellerName.trim()
+    ) {
+      return (
+        "Seller name is required."
+      );
     }
 
-    if (!formData.subcategory) {
-      return "Please select a subcategory.";
-    }
-
-    if (!formData.sellerName.trim()) {
-      return "Seller name is required.";
-    }
-
-    if (!formData.sellerEmail.trim()) {
-      return "Seller email is required.";
+    if (
+      !formData.sellerEmail.trim()
+    ) {
+      return (
+        "Seller email is required."
+      );
     }
 
     /*
-     * New products must have at least
+     * New products need at least
      * one image.
      */
+
     if (
       !isEditing &&
       images.length === 0
@@ -352,10 +1038,10 @@ function ProductForm({
     }
 
     /*
-     * When editing, the product must still
-     * have either an existing image or a
-     * newly selected image.
+     * Edited products must still
+     * have an image.
      */
+
     if (
       isEditing &&
       existingImageUrls.length === 0 &&
@@ -370,9 +1056,14 @@ function ProductForm({
   };
 
   /*
-   * Submit product.
+   * ==========================================================
+   * SUBMIT
+   * ==========================================================
    */
-  const handleSubmit = async (event) => {
+
+  const handleSubmit = async (
+    event
+  ) => {
     event.preventDefault();
 
     setError("");
@@ -381,7 +1072,10 @@ function ProductForm({
       validateForm();
 
     if (validationError) {
-      setError(validationError);
+      setError(
+        validationError
+      );
+
       return;
     }
 
@@ -389,26 +1083,106 @@ function ProductForm({
       setLoading(true);
 
       /*
-       * Prepare the data sent to the backend.
+       * ======================================================
+       * NORMALIZE CATEGORY HIERARCHY
+       * ======================================================
        */
+
+      const departmentName =
+        (
+          formData.departmentName ||
+          formData.department ||
+          ""
+        ).trim();
+
+      const categoryName =
+        (
+          formData.categoryName ||
+          formData.category ||
+          ""
+        ).trim();
+
+      const subcategoryName =
+        (
+          formData.subcategoryName ||
+          formData.subcategory ||
+          ""
+        ).trim();
+
+      /*
+       * ======================================================
+       * FINAL PRODUCT PAYLOAD
+       * ======================================================
+       *
+       * IMPORTANT:
+       *
+       * The backend expects:
+       *
+       * department
+       * category
+       * subcategory
+       *
+       * as multipart form fields.
+       */
+
       const productPayload = {
-        name: formData.name.trim(),
+        /*
+         * PRODUCT
+         */
+
+        name:
+          formData.name.trim(),
 
         description:
           formData.description.trim(),
 
-        price: Number(formData.price),
+        price:
+          Number(formData.price),
 
-        stock: Number(formData.stock),
+        stock:
+          Number(formData.stock),
+
+        /*
+         * ====================================================
+         * DEPARTMENT / CATEGORY / SUBCATEGORY
+         * ====================================================
+         *
+         * THIS IS THE IMPORTANT PART.
+         */
 
         department:
-          formData.department,
+          departmentName,
 
         category:
-          formData.category,
+          categoryName,
 
         subcategory:
-          formData.subcategory,
+          subcategoryName,
+
+        /*
+         * IDs are also kept in the
+         * frontend payload.
+         *
+         * The productService currently
+         * sends the three required names
+         * to the backend.
+         */
+
+        departmentId:
+          formData.departmentId ||
+          undefined,
+
+        categoryId:
+          formData.categoryId ||
+          undefined,
+
+        subcategoryId:
+          formData.subcategoryId ||
+          undefined,
+
+        /*
+         * PRODUCT INFORMATION
+         */
 
         brand:
           formData.brand.trim(),
@@ -419,7 +1193,9 @@ function ProductForm({
         discountPrice:
           formData.discountPrice === ""
             ? 0
-            : Number(formData.discountPrice),
+            : Number(
+                formData.discountPrice
+              ),
 
         weight:
           formData.weight.trim(),
@@ -433,6 +1209,10 @@ function ProductForm({
         specifications:
           formData.specifications.trim(),
 
+        /*
+         * SELLER
+         */
+
         sellerEmail:
           formData.sellerEmail.trim(),
 
@@ -440,22 +1220,77 @@ function ProductForm({
           formData.sellerName.trim(),
 
         /*
-         * New image files.
+         * MEDIA
          */
+
         images,
 
-        /*
-         * Product video.
-         */
         video,
       };
+
+      /*
+       * ======================================================
+       * DEBUG
+       * ======================================================
+       *
+       * This makes it easy to confirm in
+       * the browser console that department
+       * is actually being sent.
+       */
+
+      console.log(
+        "PRODUCT PAYLOAD:",
+        {
+          ...productPayload,
+
+          department:
+            productPayload.department,
+
+          category:
+            productPayload.category,
+
+          subcategory:
+            productPayload.subcategory,
+
+          images:
+            images.map(
+              (image) => ({
+                name:
+                  image.name,
+                size:
+                  image.size,
+                type:
+                  image.type,
+              })
+            ),
+
+          video:
+            video
+              ? {
+                  name:
+                    video.name,
+                  size:
+                    video.size,
+                  type:
+                    video.type,
+                }
+              : null,
+        }
+      );
+
+      /*
+       * ======================================================
+       * SAVE
+       * ======================================================
+       */
 
       let savedProduct;
 
       if (isEditing) {
         savedProduct =
           await updateProduct(
-            product.id,
+            product.id ??
+              product._id,
             productPayload
           );
       } else {
@@ -466,10 +1301,15 @@ function ProductForm({
       }
 
       /*
-       * Notify parent page.
+       * ======================================================
+       * SUCCESS
+       * ======================================================
        */
+
       if (onSuccess) {
-        onSuccess(savedProduct);
+        onSuccess(
+          savedProduct
+        );
       }
     } catch (err) {
       console.error(
@@ -478,7 +1318,8 @@ function ProductForm({
       );
 
       setError(
-        err?.message ||
+        err?.response?.data?.message ||
+          err?.message ||
           "Failed to save product. Please try again."
       );
     } finally {
@@ -487,21 +1328,21 @@ function ProductForm({
   };
 
   /*
-   * Generate temporary preview URLs
-   * for newly selected images.
+   * ==========================================================
+   * RENDER
+   * ==========================================================
    */
-  const getImagePreview = (image) => {
-    return URL.createObjectURL(image);
-  };
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={
+        handleSubmit
+      }
       className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-8"
     >
-      {/* ============================== */}
-      {/* HEADER */}
-      {/* ============================== */}
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
       <div>
         <h2 className="text-xl font-bold text-gray-900">
@@ -517,9 +1358,9 @@ function ProductForm({
         </p>
       </div>
 
-      {/* ============================== */}
-      {/* ERROR */}
-      {/* ============================== */}
+      {/* ======================================================
+          GENERAL ERROR
+      ====================================================== */}
 
       {error && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -527,9 +1368,19 @@ function ProductForm({
         </div>
       )}
 
-      {/* ============================== */}
-      {/* PRODUCT NAME */}
-      {/* ============================== */}
+      {/* ======================================================
+          DEPARTMENT API ERROR
+      ====================================================== */}
+
+      {departmentError && (
+        <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+          {departmentError}
+        </div>
+      )}
+
+      {/* ======================================================
+          PRODUCT NAME
+      ====================================================== */}
 
       <div>
         <label className="block text-sm font-semibold mb-2">
@@ -539,16 +1390,20 @@ function ProductForm({
         <input
           type="text"
           name="name"
-          value={formData.name}
-          onChange={handleChange}
+          value={
+            formData.name
+          }
+          onChange={
+            handleChange
+          }
           className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
           required
         />
       </div>
 
-      {/* ============================== */}
-      {/* DESCRIPTION */}
-      {/* ============================== */}
+      {/* ======================================================
+          DESCRIPTION
+      ====================================================== */}
 
       <div>
         <label className="block text-sm font-semibold mb-2">
@@ -557,81 +1412,118 @@ function ProductForm({
 
         <textarea
           name="description"
-          value={formData.description}
-          onChange={handleChange}
+          value={
+            formData.description
+          }
+          onChange={
+            handleChange
+          }
           rows={6}
           className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 resize-none"
           required
         />
       </div>
-      {/* ============================== */}
-      {/* DEPARTMENT / CATEGORY / SUBCATEGORY */}
-      {/* ============================== */}
+
+      {/* ======================================================
+          DEPARTMENT / CATEGORY / SUBCATEGORY
+      ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        {/* DEPARTMENT */}
+        {/* ====================================================
+            DEPARTMENT
+        ==================================================== */}
 
         <div>
-
           <label className="block text-sm font-semibold mb-2">
             Department
           </label>
 
           <select
             name="department"
-            value={formData.department}
-            onChange={handleChange}
-            disabled={loadingDepartments}
+            value={
+              formData.department
+            }
+            onChange={
+              handleDepartmentChange
+            }
+            disabled={
+              loadingDepartments
+            }
             className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
             required
           >
-
             <option value="">
               {loadingDepartments
                 ? "Loading departments..."
-                : "Select department"}
+                : departments.length ===
+                    0
+                  ? "No departments available"
+                  : "Select department"}
             </option>
 
-            {departments.map((department) => {
+            {departments.map(
+              (department) => {
+                const label =
+                  getOptionLabel(
+                    department
+                  );
 
-              const value =
-                typeof department === "string"
-                  ? department
-                  : department.name;
+                const value =
+                  label;
 
-              return (
-                <option
-                  key={
-                    department.id ??
-                    department.name ??
-                    value
-                  }
-                  value={value}
-                >
-                  {value}
-                </option>
-              );
+                const id =
+                  getOptionValue(
+                    department
+                  );
 
-            })}
+                if (!label) {
+                  return null;
+                }
 
+                return (
+                  <option
+                    key={
+                      id || label
+                    }
+                    value={
+                      value
+                    }
+                  >
+                    {label}
+                  </option>
+                );
+              }
+            )}
           </select>
 
+          {!loadingDepartments &&
+            departments.length ===
+              0 &&
+            !departmentError && (
+              <p className="text-xs text-red-500 mt-2">
+                No departments are available.
+              </p>
+            )}
         </div>
 
-
-        {/* CATEGORY */}
+        {/* ====================================================
+            CATEGORY
+        ==================================================== */}
 
         <div>
-
           <label className="block text-sm font-semibold mb-2">
             Category
           </label>
 
           <select
             name="category"
-            value={formData.category}
-            onChange={handleChange}
+            value={
+              formData.category
+            }
+            onChange={
+              handleCategoryChange
+            }
             disabled={
               !formData.department ||
               loadingCategories
@@ -639,56 +1531,86 @@ function ProductForm({
             className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
             required
           >
-
             <option value="">
               {!formData.department
                 ? "Select department first"
                 : loadingCategories
                   ? "Loading categories..."
-                  : categories.length === 0
+                  : categories.length ===
+                      0
                     ? "No categories available"
                     : "Select category"}
             </option>
 
-            {categories.map((category) => {
+            {categories.map(
+              (category) => {
+                const label =
+                  getOptionLabel(
+                    category
+                  );
 
-              const value =
-                typeof category === "string"
-                  ? category
-                  : category.name;
+                const value =
+                  label;
 
-              return (
-                <option
-                  key={
-                    category.id ??
-                    category.name ??
-                    value
-                  }
-                  value={value}
-                >
-                  {value}
-                </option>
-              );
+                const id =
+                  getOptionValue(
+                    category
+                  );
 
-            })}
+                if (!label) {
+                  return null;
+                }
 
+                return (
+                  <option
+                    key={
+                      id || label
+                    }
+                    value={
+                      value
+                    }
+                  >
+                    {label}
+                  </option>
+                );
+              }
+            )}
           </select>
 
+          {categoryError && (
+            <p className="text-xs text-red-500 mt-2">
+              {categoryError}
+            </p>
+          )}
+
+          {formData.department &&
+            !loadingCategories &&
+            categories.length ===
+              0 &&
+            !categoryError && (
+              <p className="text-xs text-gray-500 mt-2">
+                No categories found for this department.
+              </p>
+            )}
         </div>
 
-
-        {/* SUBCATEGORY */}
+        {/* ====================================================
+            SUBCATEGORY
+        ==================================================== */}
 
         <div>
-
           <label className="block text-sm font-semibold mb-2">
             Subcategory
           </label>
 
           <select
             name="subcategory"
-            value={formData.subcategory}
-            onChange={handleChange}
+            value={
+              formData.subcategory
+            }
+            onChange={
+              handleSubcategoryChange
+            }
             disabled={
               !formData.category ||
               loadingSubcategories
@@ -696,50 +1618,76 @@ function ProductForm({
             className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
             required
           >
-
             <option value="">
               {!formData.category
                 ? "Select category first"
                 : loadingSubcategories
                   ? "Loading subcategories..."
-                  : subcategories.length === 0
+                  : subcategories.length ===
+                      0
                     ? "No subcategories available"
                     : "Select subcategory"}
             </option>
 
-            {subcategories.map((subcategory) => {
+            {subcategories.map(
+              (subcategory) => {
+                const label =
+                  getOptionLabel(
+                    subcategory
+                  );
 
-              const value =
-                typeof subcategory === "string"
-                  ? subcategory
-                  : subcategory.name;
+                const value =
+                  label;
 
-              return (
-                <option
-                  key={
-                    subcategory.id ??
-                    subcategory.name ??
-                    value
-                  }
-                  value={value}
-                >
-                  {value}
-                </option>
-              );
+                const id =
+                  getOptionValue(
+                    subcategory
+                  );
 
-            })}
+                if (!label) {
+                  return null;
+                }
 
+                return (
+                  <option
+                    key={
+                      id || label
+                    }
+                    value={
+                      value
+                    }
+                  >
+                    {label}
+                  </option>
+                );
+              }
+            )}
           </select>
 
-        </div>
+          {subcategoryError && (
+            <p className="text-xs text-red-500 mt-2">
+              {subcategoryError}
+            </p>
+          )}
 
+          {formData.category &&
+            !loadingSubcategories &&
+            subcategories.length ===
+              0 &&
+            !subcategoryError && (
+              <p className="text-xs text-gray-500 mt-2">
+                No subcategories found for this category.
+              </p>
+            )}
+        </div>
       </div>
 
-      {/* ============================== */}
-      {/* PRICE / DISCOUNT / STOCK */}
-      {/* ============================== */}
+      {/* ======================================================
+          PRICE / DISCOUNT / STOCK
+      ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
         <div>
           <label className="block text-sm font-semibold mb-2">
             Price
@@ -748,8 +1696,12 @@ function ProductForm({
           <input
             type="number"
             name="price"
-            value={formData.price}
-            onChange={handleChange}
+            value={
+              formData.price
+            }
+            onChange={
+              handleChange
+            }
             min="0"
             step="0.01"
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
@@ -765,8 +1717,12 @@ function ProductForm({
           <input
             type="number"
             name="discountPrice"
-            value={formData.discountPrice}
-            onChange={handleChange}
+            value={
+              formData.discountPrice
+            }
+            onChange={
+              handleChange
+            }
             min="0"
             step="0.01"
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
@@ -781,8 +1737,12 @@ function ProductForm({
           <input
             type="number"
             name="stock"
-            value={formData.stock}
-            onChange={handleChange}
+            value={
+              formData.stock
+            }
+            onChange={
+              handleChange
+            }
             min="0"
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
             required
@@ -790,11 +1750,12 @@ function ProductForm({
         </div>
       </div>
 
-      {/* ============================== */}
-      {/* BRAND / SKU */}
-      {/* ============================== */}
+      {/* ======================================================
+          BRAND / SKU
+      ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
         <div>
           <label className="block text-sm font-semibold mb-2">
             Brand
@@ -803,8 +1764,12 @@ function ProductForm({
           <input
             type="text"
             name="brand"
-            value={formData.brand}
-            onChange={handleChange}
+            value={
+              formData.brand
+            }
+            onChange={
+              handleChange
+            }
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
@@ -817,18 +1782,23 @@ function ProductForm({
           <input
             type="text"
             name="sku"
-            value={formData.sku}
-            onChange={handleChange}
+            value={
+              formData.sku
+            }
+            onChange={
+              handleChange
+            }
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
       </div>
 
-      {/* ============================== */}
-      {/* WEIGHT / DELIVERY / STATUS */}
-      {/* ============================== */}
+      {/* ======================================================
+          WEIGHT / DELIVERY / STATUS
+      ====================================================== */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
         <div>
           <label className="block text-sm font-semibold mb-2">
             Weight
@@ -837,8 +1807,12 @@ function ProductForm({
           <input
             type="text"
             name="weight"
-            value={formData.weight}
-            onChange={handleChange}
+            value={
+              formData.weight
+            }
+            onChange={
+              handleChange
+            }
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
@@ -851,8 +1825,12 @@ function ProductForm({
           <input
             type="text"
             name="deliveryTime"
-            value={formData.deliveryTime}
-            onChange={handleChange}
+            value={
+              formData.deliveryTime
+            }
+            onChange={
+              handleChange
+            }
             className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
@@ -864,8 +1842,12 @@ function ProductForm({
 
           <select
             name="status"
-            value={formData.status}
-            onChange={handleChange}
+            value={
+              formData.status
+            }
+            onChange={
+              handleChange
+            }
             className="w-full border rounded-lg px-4 py-3 bg-white outline-none focus:ring-2 focus:ring-green-500"
           >
             <option value="In Stock">
@@ -883,9 +1865,9 @@ function ProductForm({
         </div>
       </div>
 
-      {/* ============================== */}
-      {/* SPECIFICATIONS */}
-      {/* ============================== */}
+      {/* ======================================================
+          SPECIFICATIONS
+      ====================================================== */}
 
       <div>
         <label className="block text-sm font-semibold mb-2">
@@ -894,16 +1876,20 @@ function ProductForm({
 
         <textarea
           name="specifications"
-          value={formData.specifications}
-          onChange={handleChange}
+          value={
+            formData.specifications
+          }
+          onChange={
+            handleChange
+          }
           rows={6}
           className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 resize-none"
         />
       </div>
 
-      {/* ============================== */}
-      {/* PRODUCT IMAGES */}
-      {/* ============================== */}
+      {/* ======================================================
+          PRODUCT IMAGES
+      ====================================================== */}
 
       <div>
         <label className="block text-sm font-semibold mb-2">
@@ -911,7 +1897,9 @@ function ProductForm({
         </label>
 
         <div className="border-2 border-dashed border-gray-300 rounded-xl p-6">
+
           <label className="flex flex-col items-center justify-center cursor-pointer">
+
             <Upload
               size={32}
               className="text-gray-400 mb-2"
@@ -922,201 +1910,280 @@ function ProductForm({
             </span>
 
             <span className="text-xs text-gray-500 mt-1">
-              Select one or more product images
+              Select one or more images
             </span>
 
             <input
               type="file"
               accept="image/*"
               multiple
-              onChange={handleImagesChange}
+              onChange={
+                handleImagesChange
+              }
               className="hidden"
             />
+
           </label>
+
+          {/* EXISTING IMAGES */}
+
+          {existingImageUrls.length >
+            0 && (
+            <div className="mt-6">
+
+              <p className="text-sm font-semibold mb-3">
+                Existing Images
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                {existingImageUrls.map(
+                  (
+                    url,
+                    index
+                  ) => (
+                    <div
+                      key={`${url}-${index}`}
+                      className="relative group"
+                    >
+                      <img
+                        src={url}
+                        alt={`Product ${
+                          index + 1
+                        }`}
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeExistingImage(
+                            index
+                          )
+                        }
+                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X
+                          size={16}
+                        />
+                      </button>
+                    </div>
+                  )
+                )}
+
+              </div>
+            </div>
+          )}
+
+          {/* NEW IMAGES */}
+
+          {images.length >
+            0 && (
+            <div className="mt-6">
+
+              <p className="text-sm font-semibold mb-3">
+                New Images
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                {images.map(
+                  (
+                    image,
+                    index
+                  ) => (
+                    <div
+                      key={`${image.name}-${image.lastModified}-${index}`}
+                      className="relative group"
+                    >
+
+                      <img
+                        src={
+                          imagePreviews[
+                            index
+                          ]
+                        }
+                        alt={
+                          image.name
+                        }
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeImage(
+                            index
+                          )
+                        }
+                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <X
+                          size={16}
+                        />
+                      </button>
+
+                    </div>
+                  )
+                )}
+
+              </div>
+            </div>
+          )}
+
         </div>
-
-        {/* ============================== */}
-        {/* EXISTING IMAGES */}
-        {/* ============================== */}
-
-        {existingImageUrls.length > 0 && (
-          <div className="mt-5">
-            <p className="text-sm font-semibold mb-3">
-              Current Product Images
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {existingImageUrls.map(
-                (url, index) => (
-                  <div
-                    key={`${url}-${index}`}
-                    className="relative rounded-lg overflow-hidden border"
-                  >
-                    <img
-                      src={url}
-                      alt={`Product image ${index + 1}`}
-                      className="w-full aspect-square object-cover"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeExistingImage(index)
-                      }
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ============================== */}
-        {/* NEW IMAGES */}
-        {/* ============================== */}
-
-        {images.length > 0 && (
-          <div className="mt-5">
-            <p className="text-sm font-semibold mb-3">
-              New Images
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {images.map(
-                (image, index) => (
-                  <div
-                    key={`${image.name}-${image.lastModified}-${index}`}
-                    className="relative rounded-lg overflow-hidden border"
-                  >
-                    <img
-                      src={getImagePreview(image)}
-                      alt={image.name}
-                      className="w-full aspect-square object-cover"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeImage(index)
-                      }
-                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ============================== */}
-      {/* PRODUCT VIDEO */}
-      {/* ============================== */}
+      {/* ======================================================
+          PRODUCT VIDEO
+      ====================================================== */}
 
       <div>
+
         <label className="block text-sm font-semibold mb-2">
           Product Video
         </label>
 
-        <label className="flex items-center gap-3 border-2 border-dashed border-gray-300 rounded-xl px-5 py-6 cursor-pointer hover:border-green-500 transition">
-          <Upload
-            size={24}
-            className="text-gray-400"
-          />
+        <div className="border-2 border-dashed border-gray-300 rounded-xl p-6">
 
-          <div>
-            <p className="text-sm font-medium">
-              Upload product video
-            </p>
+          {!video ? (
+            <label className="flex flex-col items-center justify-center cursor-pointer">
 
-            <p className="text-xs text-gray-500">
-              Optional
-            </p>
-          </div>
+              <Upload
+                size={32}
+                className="text-gray-400 mb-2"
+              />
 
-          <input
-            type="file"
-            accept="video/*"
-            onChange={handleVideoChange}
-            className="hidden"
-          />
-        </label>
+              <span className="text-sm font-medium">
+                Upload product video
+              </span>
 
-        {video && (
-          <div className="mt-3 flex items-center justify-between bg-gray-50 border rounded-lg px-4 py-3">
-            <span className="text-sm truncate">
-              {video.name}
-            </span>
+              <span className="text-xs text-gray-500 mt-1">
+                Optional
+              </span>
 
-            <button
-              type="button"
-              onClick={removeVideo}
-              className="text-red-600 hover:text-red-700"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
-      </div>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={
+                  handleVideoChange
+                }
+                className="hidden"
+              />
 
-      {/* ============================== */}
-      {/* SELLER INFORMATION */}
-      {/* ============================== */}
-
-      <div>
-        <h3 className="text-lg font-bold mb-4">
-          Seller Information
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-sm font-semibold mb-2">
-              Seller Name
             </label>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
 
-            <input
-              type="text"
-              name="sellerName"
-              value={formData.sellerName}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
+              <div className="flex items-center gap-3 min-w-0">
 
-          <div>
-            <label className="block text-sm font-semibold mb-2">
-              Seller Email
-            </label>
+                <div className="bg-gray-100 rounded-lg p-3">
+                  <Upload
+                    size={20}
+                    className="text-gray-600"
+                  />
+                </div>
 
-            <input
-              type="email"
-              name="sellerEmail"
-              value={formData.sellerEmail}
-              onChange={handleChange}
-              className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
+                <div className="min-w-0">
+
+                  <p className="text-sm font-medium truncate">
+                    {video.name}
+                  </p>
+
+                  <p className="text-xs text-gray-500">
+                    {(
+                      video.size /
+                      (1024 * 1024)
+                    ).toFixed(2)}{" "}
+                    MB
+                  </p>
+
+                </div>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={
+                  removeVideo
+                }
+                className="text-red-600 hover:text-red-700"
+              >
+                <X size={20} />
+              </button>
+
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* ============================== */}
-      {/* ACTION BUTTONS */}
-      {/* ============================== */}
+      {/* ======================================================
+          SELLER INFORMATION
+      ====================================================== */}
 
-      <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div>
+
+          <label className="block text-sm font-semibold mb-2">
+            Seller Name
+          </label>
+
+          <input
+            type="text"
+            name="sellerName"
+            value={
+              formData.sellerName
+            }
+            onChange={
+              handleChange
+            }
+            className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
+            required
+          />
+
+        </div>
+
+        <div>
+
+          <label className="block text-sm font-semibold mb-2">
+            Seller Email
+          </label>
+
+          <input
+            type="email"
+            name="sellerEmail"
+            value={
+              formData.sellerEmail
+            }
+            onChange={
+              handleChange
+            }
+            className="w-full border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-green-500"
+            required
+          />
+
+        </div>
+
+      </div>
+
+      {/* ======================================================
+          BUTTONS
+      ====================================================== */}
+
+      <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
+
         {onCancel && (
           <button
             type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="px-6 py-3 rounded-lg border border-gray-300 font-semibold hover:bg-gray-50 transition disabled:opacity-50"
+            onClick={
+              onCancel
+            }
+            disabled={
+              loading
+            }
+            className="px-6 py-3 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1124,9 +2191,12 @@ function ProductForm({
 
         <button
           type="submit"
-          disabled={loading}
-          className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
+          disabled={
+            loading
+          }
+          className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
+
           {loading ? (
             <>
               <Loader2
@@ -1135,35 +2205,27 @@ function ProductForm({
               />
 
               {isEditing
-                ? "Updating Product..."
-                : "Publishing Product..."}
+                ? "Updating..."
+                : "Creating..."}
             </>
           ) : (
             <>
-              {!isEditing && (
-                <Plus size={18} />
-              )}
+              <Plus
+                size={18}
+              />
 
               {isEditing
                 ? "Update Product"
-                : "Publish Product"}
+                : "Create Product"}
             </>
           )}
+
         </button>
+
       </div>
+
     </form>
   );
 }
 
 export default ProductForm;
-
-
-
-
-
-
-
-
-
-
-

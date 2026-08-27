@@ -1,6 +1,76 @@
-const API_URL =
+﻿const API_URL =
   `${import.meta.env.VITE_API_URL}/products`;
 
+if (!import.meta.env.VITE_API_URL) {
+  throw new Error("VITE_API_URL is not configured.");
+}
+
+function getSellerEmail() {
+  const savedUser =
+    localStorage.getItem("mandilas-user");
+
+  let sellerUser = null;
+
+  try {
+    sellerUser = savedUser
+      ? JSON.parse(savedUser)
+      : null;
+  } catch {
+    sellerUser = null;
+  }
+
+  return sellerUser?.email || "";
+}
+
+async function getErrorMessage(
+  response,
+  fallbackMessage
+) {
+  let message = fallbackMessage;
+
+  try {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (
+      contentType.includes("application/json")
+    ) {
+      const data = await response.json();
+
+      message =
+        data?.message ||
+        data?.error ||
+        data?.details ||
+        fallbackMessage;
+    } else {
+      const text = await response.text();
+
+      if (text) {
+        message = text;
+      }
+    }
+  } catch {
+    // Keep fallback message.
+  }
+
+  return message;
+}
+
+async function parseJsonResponse(
+  response,
+  fallbackMessage
+) {
+  if (!response.ok) {
+    const message = await getErrorMessage(
+      response,
+      fallbackMessage
+    );
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}
 
 /*
  * =========================================================
@@ -12,15 +82,11 @@ export async function getAllProducts() {
   const response =
     await fetch(API_URL);
 
-  if (!response.ok) {
-    throw new Error(
-      "Failed to fetch products"
-    );
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch products"
+  );
 }
-
 
 /*
  * =========================================================
@@ -29,25 +95,28 @@ export async function getAllProducts() {
  */
 
 export async function getProductById(id) {
+  const sellerEmail = getSellerEmail();
+
+  const query = sellerEmail
+    ? `?email=${encodeURIComponent(
+        sellerEmail
+      )}`
+    : "";
+
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`
+      `${API_URL}/${id}${query}`
     );
 
-  if (!response.ok) {
-
-    if (response.status === 404) {
-      return null;
-    }
-
-    throw new Error(
-      "Failed to fetch product"
-    );
+  if (response.status === 404) {
+    return null;
   }
 
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch product"
+  );
 }
-
 
 /*
  * =========================================================
@@ -56,26 +125,11 @@ export async function getProductById(id) {
  */
 
 export async function createProduct(product) {
-
   const formData =
     new FormData();
 
-  /*
-   * Get the currently logged-in seller
-   * from the simple local user session.
-   */
-  const savedUser =
-    localStorage.getItem(
-      "mandilas-user"
-    );
-
-  const sellerUser =
-    savedUser
-      ? JSON.parse(savedUser)
-      : null;
-
   const sellerEmail =
-    sellerUser?.email || "";
+    getSellerEmail();
 
   if (!sellerEmail) {
     throw new Error(
@@ -84,11 +138,13 @@ export async function createProduct(product) {
   }
 
   /*
-   * Seller identity is sent directly.
+   * Seller identity.
    *
-   * No JWT.
-   * No Authorization header.
+   * The current backend expects sellerEmail as a
+   * multipart form field and does not require a JWT
+   * for this product endpoint.
    */
+
   formData.append(
     "sellerEmail",
     sellerEmail
@@ -96,74 +152,95 @@ export async function createProduct(product) {
 
   formData.append(
     "name",
-    product.name || ""
+    product?.name || ""
   );
 
   formData.append(
     "description",
-    product.description || ""
+    product?.description || ""
   );
 
   formData.append(
     "price",
-    product.price ?? "0"
+    product?.price ?? "0"
   );
 
   formData.append(
     "stock",
-    product.stock ?? "0"
+    product?.stock ?? "0"
   );
+
+  /*
+   * =======================================================
+   * DEPARTMENT → CATEGORY → SUBCATEGORY
+   * =======================================================
+   *
+   * The ProductController currently expects the names
+   * through these exact multipart fields:
+   *
+   * department
+   * category
+   * subcategory
+   *
+   * ProductForm sends the selected department/category/
+   * subcategory names here.
+   */
 
   formData.append(
     "department",
-    product.department || ""
+    product?.department ||
+      product?.departmentName ||
+      ""
   );
 
   formData.append(
     "category",
-    product.category || ""
+    product?.category ||
+      product?.categoryName ||
+      ""
   );
 
   formData.append(
     "subcategory",
-    product.subcategory || ""
+    product?.subcategory ||
+      product?.subcategoryName ||
+      ""
   );
 
   formData.append(
     "brand",
-    product.brand || ""
+    product?.brand || ""
   );
 
   formData.append(
     "sku",
-    product.sku || ""
+    product?.sku || ""
   );
 
   formData.append(
     "discountPrice",
-    product.discountPrice ?? "0"
+    product?.discountPrice ?? "0"
   );
 
   formData.append(
     "weight",
-    product.weight || ""
+    product?.weight || ""
   );
 
   formData.append(
     "deliveryTime",
-    product.deliveryTime || ""
+    product?.deliveryTime || ""
   );
 
   formData.append(
     "status",
-    product.status || "In Stock"
+    product?.status || "In Stock"
   );
 
   formData.append(
     "specifications",
-    product.specifications || ""
+    product?.specifications || ""
   );
-
 
   /*
    * =======================================================
@@ -172,14 +249,11 @@ export async function createProduct(product) {
    */
 
   if (
-    Array.isArray(product.images)
+    Array.isArray(product?.images)
   ) {
-
     product.images.forEach(
       (image) => {
-
         if (image instanceof File) {
-
           formData.append(
             "images",
             image
@@ -189,7 +263,6 @@ export async function createProduct(product) {
     );
   }
 
-
   /*
    * =======================================================
    * VIDEO
@@ -197,24 +270,21 @@ export async function createProduct(product) {
    */
 
   if (
-    product.video instanceof File
+    product?.video instanceof File
   ) {
-
     formData.append(
       "video",
       product.video
     );
   }
 
-
   /*
    * =======================================================
    * REQUEST
    * =======================================================
    *
-   * IMPORTANT:
-   * No JWT.
-   * No Authorization header.
+   * Do NOT set Content-Type manually for FormData.
+   * The browser adds the multipart boundary.
    */
 
   const response =
@@ -226,53 +296,11 @@ export async function createProduct(product) {
       }
     );
 
-
-  if (!response.ok) {
-
-    let message =
-      `Failed to create product (${response.status})`;
-
-    try {
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "";
-
-      if (
-        contentType.includes(
-          "application/json"
-        )
-      ) {
-
-        const data =
-          await response.json();
-
-        if (data.message) {
-          message =
-            data.message;
-        }
-
-      } else {
-
-        const text =
-          await response.text();
-
-        if (text) {
-          message = text;
-        }
-      }
-
-    } catch {
-      // Keep default message.
-    }
-
-    throw new Error(message);
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    `Failed to create product (${response.status})`
+  );
 }
-
 
 /*
  * =========================================================
@@ -280,62 +308,65 @@ export async function createProduct(product) {
  * =========================================================
  */
 
-export async function updateProduct(id, product) {
-
-  const savedUser = localStorage.getItem("mandilas-user");
-
-  const sellerUser = savedUser
-    ? JSON.parse(savedUser)
-    : null;
-
-  const sellerEmail = sellerUser?.email || "";
+export async function updateProduct(
+  id,
+  product
+) {
+  const sellerEmail =
+    getSellerEmail();
 
   if (!sellerEmail) {
-    throw new Error("Please login as a seller.");
+    throw new Error(
+      "Please login as a seller."
+    );
   }
+
+  /*
+   * Keep the department hierarchy in the JSON
+   * sent to the existing PUT endpoint.
+   */
+
+  const payload = {
+    ...product,
+
+    department:
+      product?.department ||
+      product?.departmentName ||
+      "",
+
+    category:
+      product?.category ||
+      product?.categoryName ||
+      "",
+
+    subcategory:
+      product?.subcategory ||
+      product?.subcategoryName ||
+      "",
+  };
 
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`,
+      `${API_URL}/${id}?email=${encodeURIComponent(
+        sellerEmail
+      )}`,
       {
         method: "PUT",
-
         headers: {
           "Content-Type":
             "application/json",
         },
-
-        body:
-          JSON.stringify(product),
+        body: JSON.stringify(
+          payload
+        ),
       }
     );
 
-
-  if (!response.ok) {
-
-    let message =
-      "Failed to update product";
-
-    try {
-
-      const data =
-        await response.json();
-
-      if (data.message) {
-        message =
-          data.message;
-      }
-
-    } catch {
-      // Keep default message.
-    }
-
-    throw new Error(message);
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to update product"
+  );
 }
-
 
 /*
  * =========================================================
@@ -344,46 +375,31 @@ export async function updateProduct(id, product) {
  */
 
 export async function deleteProduct(id) {
-
-  const savedUser = localStorage.getItem("mandilas-user");
-
-  const sellerUser = savedUser
-    ? JSON.parse(savedUser)
-    : null;
-
-  const sellerEmail = sellerUser?.email || "";
+  const sellerEmail =
+    getSellerEmail();
 
   if (!sellerEmail) {
-    throw new Error("Please login as a seller.");
+    throw new Error(
+      "Please login as a seller."
+    );
   }
 
   const response =
     await fetch(
-      `${API_URL}/${id}?email=${encodeURIComponent(sellerEmail)}`,
+      `${API_URL}/${id}?email=${encodeURIComponent(
+        sellerEmail
+      )}`,
       {
         method: "DELETE",
       }
     );
 
-
   if (!response.ok) {
-
-    let message =
-      "Failed to delete product";
-
-    try {
-
-      const data =
-        await response.json();
-
-      if (data.message) {
-        message =
-          data.message;
-      }
-
-    } catch {
-      // Keep default message.
-    }
+    const message =
+      await getErrorMessage(
+        response,
+        "Failed to delete product"
+      );
 
     throw new Error(message);
   }
@@ -391,31 +407,15 @@ export async function deleteProduct(id) {
   return true;
 }
 
-
 /*
  * =========================================================
  * GET SELLER PRODUCTS
  * =========================================================
- *
- * Seller identity comes from mandilas-user.
- *
- * No JWT.
  */
 
 export async function getProductsBySeller() {
-
-  const savedUser =
-    localStorage.getItem(
-      "mandilas-user"
-    );
-
-  const sellerUser =
-    savedUser
-      ? JSON.parse(savedUser)
-      : null;
-
   const sellerEmail =
-    sellerUser?.email || "";
+    getSellerEmail();
 
   if (!sellerEmail) {
     throw new Error(
@@ -430,32 +430,102 @@ export async function getProductsBySeller() {
       )}`
     );
 
-
-  if (!response.ok) {
-
-    let message =
-      "Failed to fetch seller products";
-
-    try {
-
-      const data =
-        await response.json();
-
-      if (data.message) {
-        message =
-          data.message;
-      }
-
-    } catch {
-      // Keep default message.
-    }
-
-    throw new Error(message);
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch seller products"
+  );
 }
 
+/*
+ * =========================================================
+ * GET PRODUCTS BY DEPARTMENT
+ * =========================================================
+ */
+
+export async function getProductsByDepartment(
+  department
+) {
+  if (!department) {
+    return [];
+  }
+
+  const response =
+    await fetch(
+      `${API_URL}/department/${encodeURIComponent(
+        department
+      )}`
+    );
+
+  return parseJsonResponse(
+    response,
+    "Failed to fetch department products"
+  );
+}
+
+/*
+ * =========================================================
+ * GET PRODUCTS BY DEPARTMENT + CATEGORY
+ * =========================================================
+ */
+
+export async function getProductsByDepartmentAndCategory(
+  department,
+  category
+) {
+  if (!department || !category) {
+    return [];
+  }
+
+  const response =
+    await fetch(
+      `${API_URL}/department/${encodeURIComponent(
+        department
+      )}/category/${encodeURIComponent(
+        category
+      )}`
+    );
+
+  return parseJsonResponse(
+    response,
+    "Failed to fetch department and category products"
+  );
+}
+
+/*
+ * =========================================================
+ * GET PRODUCTS BY DEPARTMENT + CATEGORY + SUBCATEGORY
+ * =========================================================
+ */
+
+export async function getProductsByDepartmentAndCategoryAndSubcategory(
+  department,
+  category,
+  subcategory
+) {
+  if (
+    !department ||
+    !category ||
+    !subcategory
+  ) {
+    return [];
+  }
+
+  const response =
+    await fetch(
+      `${API_URL}/department/${encodeURIComponent(
+        department
+      )}/category/${encodeURIComponent(
+        category
+      )}/subcategory/${encodeURIComponent(
+        subcategory
+      )}`
+    );
+
+  return parseJsonResponse(
+    response,
+    "Failed to fetch department, category and subcategory products"
+  );
+}
 
 /*
  * =========================================================
@@ -466,6 +536,9 @@ export async function getProductsBySeller() {
 export async function getProductsByCategory(
   category
 ) {
+  if (!category) {
+    return [];
+  }
 
   const response =
     await fetch(
@@ -474,15 +547,11 @@ export async function getProductsByCategory(
       )}`
     );
 
-  if (!response.ok) {
-    throw new Error(
-      "Failed to fetch category products"
-    );
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch category products"
+  );
 }
-
 
 /*
  * =========================================================
@@ -494,6 +563,9 @@ export async function getProductsByCategoryAndSubcategory(
   category,
   subcategory
 ) {
+  if (!category || !subcategory) {
+    return [];
+  }
 
   const response =
     await fetch(
@@ -504,15 +576,11 @@ export async function getProductsByCategoryAndSubcategory(
       )}`
     );
 
-  if (!response.ok) {
-    throw new Error(
-      "Failed to fetch category and subcategory products"
-    );
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch category and subcategory products"
+  );
 }
-
 
 /*
  * =========================================================
@@ -523,6 +591,9 @@ export async function getProductsByCategoryAndSubcategory(
 export async function getProductsBySubcategory(
   subcategory
 ) {
+  if (!subcategory) {
+    return [];
+  }
 
   const response =
     await fetch(
@@ -531,15 +602,11 @@ export async function getProductsBySubcategory(
       )}`
     );
 
-  if (!response.ok) {
-    throw new Error(
-      "Failed to fetch subcategory products"
-    );
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to fetch subcategory products"
+  );
 }
-
 
 /*
  * =========================================================
@@ -548,15 +615,12 @@ export async function getProductsBySubcategory(
  */
 
 export async function searchProducts(name) {
-
   const term =
     name?.trim();
-
 
   if (!term) {
     return getAllProducts();
   }
-
 
   const response =
     await fetch(
@@ -565,50 +629,8 @@ export async function searchProducts(name) {
       )}`
     );
 
-
-  if (!response.ok) {
-
-    let message =
-      "Failed to search products";
-
-    try {
-
-      const contentType =
-        response.headers.get(
-          "content-type"
-        ) || "";
-
-      if (
-        contentType.includes(
-          "application/json"
-        )
-      ) {
-
-        const data =
-          await response.json();
-
-        if (data.message) {
-          message =
-            data.message;
-        }
-
-      } else {
-
-        const text =
-          await response.text();
-
-        if (text) {
-          message = text;
-        }
-      }
-
-    } catch {
-      // Keep default message.
-    }
-
-    throw new Error(message);
-  }
-
-  return response.json();
+  return parseJsonResponse(
+    response,
+    "Failed to search products"
+  );
 }
-

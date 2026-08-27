@@ -1,9 +1,24 @@
-const API_URL = import.meta.env.VITE_API_URL;
+﻿import axios from "axios";
 
-if (!API_URL) {
-  throw new Error(
-    "VITE_API_URL is not configured. Please check your environment variables."
-  );
+const rawApiUrl =
+    import.meta.env.VITE_API_URL;
+
+if (!rawApiUrl) {
+    throw new Error(
+        "VITE_API_URL is not configured."
+    );
 }
 
-export default API_URL;
+const baseURL =
+    rawApiUrl.replace(/\/+$/, "").endsWith("/api")
+        ? rawApiUrl.replace(/\/+$/, "")
+        : `${rawApiUrl.replace(/\/+$/, "")}/api`;
+
+const api = axios.create({
+    baseURL,
+    headers: {
+        Accept: "application/json",
+    },
+});
+
+export default api;

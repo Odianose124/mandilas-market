@@ -4,6 +4,7 @@ import com.mandilas.market.model.Category;
 import com.mandilas.market.model.Department;
 import com.mandilas.market.model.Subcategory;
 import com.mandilas.market.service.CategoryService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,8 +20,10 @@ public class CategoryController {
     public CategoryController(
             CategoryService categoryService
     ) {
-        this.categoryService = categoryService;
+        this.categoryService =
+                categoryService;
     }
+
 
     // =========================================================
     // GET ALL ACTIVE DEPARTMENTS
@@ -34,6 +37,7 @@ public class CategoryController {
         );
     }
 
+
     // =========================================================
     // GET ALL ACTIVE CATEGORIES
     // =========================================================
@@ -45,6 +49,7 @@ public class CategoryController {
                 categoryService.getCategories()
         );
     }
+
 
     // =========================================================
     // GET CATEGORIES BY DEPARTMENT
@@ -77,6 +82,7 @@ public class CategoryController {
         }
     }
 
+
     // =========================================================
     // GET SUBCATEGORIES BY CATEGORY
     // =========================================================
@@ -108,6 +114,7 @@ public class CategoryController {
         }
     }
 
+
     // =========================================================
     // CREATE CATEGORY
     // =========================================================
@@ -123,7 +130,16 @@ public class CategoryController {
                     body.get("name");
 
             String department =
-                    body.get("department");
+                    body.get("departmentName");
+
+            if (
+                    department == null ||
+                    department.isBlank()
+            ) {
+
+                department =
+                        body.get("department");
+            }
 
             Category category =
                     categoryService.createCategory(
@@ -147,6 +163,7 @@ public class CategoryController {
                     );
         }
     }
+
 
     // =========================================================
     // CREATE SUBCATEGORY
