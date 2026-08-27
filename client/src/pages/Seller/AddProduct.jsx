@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useProducts } from "../../context/ProductContext";
-import { useAuth } from "../../context/AuthContext";
-
 import {
   Upload,
   ImagePlus,
   Video,
 } from "lucide-react";
+
+import { useProducts } from "../../context/ProductContext";
+import { useAuth } from "../../context/AuthContext";
+import { useCategories } from "../../context/CategoryContext";
 
 function AddProduct() {
   const navigate = useNavigate();
@@ -16,16 +17,38 @@ function AddProduct() {
   const { addProduct } = useProducts();
   const { user } = useAuth();
 
+  const {
+    departments = [],
+    categories = [],
+    subcategories = [],
+
+    loadCategoriesByDepartment,
+    loadSubcategories,
+
+    loadingDepartments = false,
+    loadingCategories = false,
+    loadingSubcategories = false,
+
+    departmentError = "",
+    categoryError = "",
+    subcategoryError = "",
+  } = useCategories();
+
   const [formData, setFormData] = useState({
     name: "",
+    department: "",
     category: "",
+    subcategory: "",
+
     brand: "",
     price: "",
     discountPrice: "",
     stock: "",
     sku: "",
+
     description: "",
     specifications: "",
+
     weight: "",
     deliveryTime: "",
     status: "In Stock",
@@ -37,9 +60,15 @@ function AddProduct() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
-  // Handle normal form fields
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  // =========================================================
+  // NORMAL INPUT CHANGE
+  // =========================================================
+
+  const handleChange = (event) => {
+    const {
+      name,
+      value,
+    } = event.target;
 
     setFormData((currentData) => ({
       ...currentData,
@@ -47,105 +76,377 @@ function AddProduct() {
     }));
   };
 
-  // Handle multiple images
-  const handleImages = (e) => {
-    const selectedImages = Array.from(e.target.files || []);
+  // =========================================================
+  // DEPARTMENT CHANGE
+  // =========================================================
 
-    setImages(selectedImages);
-  };
+  const handleDepartmentChange = async (
+    event
+  ) => {
+    const department =
+      event.target.value;
 
-  // Handle video
-  const handleVideo = (e) => {
-    const selectedVideo = e.target.files?.[0] || null;
+    setFormData((currentData) => ({
+      ...currentData,
 
-    setVideo(selectedVideo);
-  };
+      department,
 
-  // Submit product
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+      // Reset dependent fields
+      category: "",
+      subcategory: "",
+    }));
 
     setError("");
 
-    // Make sure a user is logged in
+    if (!department) {
+      return;
+    }
+
+    await loadCategoriesByDepartment(
+      department
+    );
+  };
+
+  // =========================================================
+  // CATEGORY CHANGE
+  // =========================================================
+
+  const handleCategoryChange = async (
+    event
+  ) => {
+    const category =
+      event.target.value;
+
+    setFormData((currentData) => ({
+      ...currentData,
+
+      category,
+
+      // Reset dependent subcategory
+      subcategory: "",
+    }));
+
+    setError("");
+
+    if (!category) {
+      return;
+    }
+
+    await loadSubcategories(
+      category
+    );
+  };
+
+  // =========================================================
+  // IMAGE UPLOAD
+  // =========================================================
+
+  const handleImages = (event) => {
+    const selectedImages =
+      Array.from(
+        event.target.files || []
+      );
+
+    const validImages =
+      selectedImages.filter(
+        (file) =>
+          file.type &&
+          file.type.startsWith("image/")
+      );
+
+    if (
+      validImages.length === 0
+    ) {
+      setError(
+        "Please select valid image files."
+      );
+
+      event.target.value = "";
+
+      return;
+    }
+
+    setImages(validImages);
+
+    setError("");
+
+    event.target.value = "";
+  };
+
+  // =========================================================
+  // VIDEO UPLOAD
+  // =========================================================
+
+  const handleVideo = (event) => {
+    const selectedVideo =
+      event.target.files?.[0] || null;
+
+    if (!selectedVideo) {
+      return;
+    }
+
+    if (
+      !selectedVideo.type ||
+      !selectedVideo.type.startsWith(
+        "video/"
+      )
+    ) {
+      setError(
+        "Please select a valid video file."
+      );
+
+      event.target.value = "";
+
+      return;
+    }
+
+    setVideo(selectedVideo);
+
+    setError("");
+
+    event.target.value = "";
+  };
+
+  // =========================================================
+  // SUBMIT PRODUCT
+  // =========================================================
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    setError("");
+
+    // ---------------------------------------------------------
+    // LOGIN CHECK
+    // ---------------------------------------------------------
+
     if (!user?.email) {
       setError(
         "You must be logged in before adding a product."
       );
+
       return;
     }
 
-    // Basic validation
-    if (!formData.name.trim()) {
-      setError("Please enter a product name.");
+    // ---------------------------------------------------------
+    // BASIC VALIDATION
+    // ---------------------------------------------------------
+
+    if (
+      !formData.name.trim()
+    ) {
+      setError(
+        "Please enter a product name."
+      );
+
       return;
     }
 
-    if (!formData.category.trim()) {
-      setError("Please enter a product category.");
+    // ---------------------------------------------------------
+    // DEPARTMENT
+    // ---------------------------------------------------------
+
+    if (
+      !formData.department.trim()
+    ) {
+      setError(
+        "Department is required."
+      );
+
       return;
     }
 
-    if (!formData.price) {
-      setError("Please enter the product price.");
+    // ---------------------------------------------------------
+    // CATEGORY
+    // ---------------------------------------------------------
+
+    if (
+      !formData.category.trim()
+    ) {
+      setError(
+        "Category is required."
+      );
+
       return;
     }
 
-    if (!formData.stock) {
-      setError("Please enter the available stock.");
+    // ---------------------------------------------------------
+    // SUBCATEGORY
+    // ---------------------------------------------------------
+
+    if (
+      !formData.subcategory.trim()
+    ) {
+      setError(
+        "Subcategory is required."
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------------------
+    // PRICE
+    // ---------------------------------------------------------
+
+    if (
+      !formData.price ||
+      Number(formData.price) <= 0
+    ) {
+      setError(
+        "Please enter a valid product price."
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------------------
+    // STOCK
+    // ---------------------------------------------------------
+
+    if (
+      formData.stock === "" ||
+      Number(formData.stock) < 0
+    ) {
+      setError(
+        "Please enter a valid stock quantity."
+      );
+
+      return;
+    }
+
+    // ---------------------------------------------------------
+    // IMAGE
+    // ---------------------------------------------------------
+
+    if (
+      images.length === 0
+    ) {
+      setError(
+        "Please upload at least one product image."
+      );
+
       return;
     }
 
     try {
       setUploading(true);
 
+      // -------------------------------------------------------
+      // SELLER NAME
+      // -------------------------------------------------------
+
       const sellerName =
         `${user.firstName || ""} ${
           user.lastName || ""
         }`.trim();
 
-      const productData = {
-        name: formData.name,
-        category: formData.category,
-        brand: formData.brand,
-        price: formData.price,
-        discountPrice:
-          formData.discountPrice || 0,
-        stock: formData.stock,
-        sku: formData.sku,
-        description: formData.description,
-        specifications:
-          formData.specifications,
-        weight: formData.weight,
-        deliveryTime:
-          formData.deliveryTime,
-        status: formData.status,
+      // -------------------------------------------------------
+      // PRODUCT PAYLOAD
+      // -------------------------------------------------------
 
-        // Seller information
-        sellerEmail: user.email,
+      const productData = {
+        name:
+          formData.name.trim(),
+
+        description:
+          formData.description.trim(),
+
+        price:
+          Number(formData.price),
+
+        stock:
+          Number(formData.stock),
+
+        // IMPORTANT:
+        // Department hierarchy
+        department:
+          formData.department.trim(),
+
+        category:
+          formData.category.trim(),
+
+        subcategory:
+          formData.subcategory.trim(),
+
+        brand:
+          formData.brand.trim(),
+
+        sku:
+          formData.sku.trim(),
+
+        discountPrice:
+          formData.discountPrice === ""
+            ? 0
+            : Number(
+                formData.discountPrice
+              ),
+
+        weight:
+          formData.weight.trim(),
+
+        deliveryTime:
+          formData.deliveryTime.trim(),
+
+        status:
+          formData.status,
+
+        specifications:
+          formData.specifications.trim(),
+
+        // -----------------------------------------------------
+        // SELLER INFORMATION
+        // -----------------------------------------------------
+
+        sellerEmail:
+          user.email,
+
         sellerName,
 
-        // Files
+        // -----------------------------------------------------
+        // FILES
+        // -----------------------------------------------------
+
         images,
+
         video,
       };
 
-      // Wait for backend + Cloudinary upload
-      await addProduct(productData);
+      console.log(
+        "PRODUCT PAYLOAD:",
+        productData
+      );
 
-      alert("Product added successfully!");
+      // -------------------------------------------------------
+      // CREATE PRODUCT
+      // -------------------------------------------------------
 
-      // Reset form
+      await addProduct(
+        productData
+      );
+
+      alert(
+        "Product added successfully!"
+      );
+
+      // -------------------------------------------------------
+      // RESET FORM
+      // -------------------------------------------------------
+
       setFormData({
         name: "",
+        department: "",
         category: "",
+        subcategory: "",
+
         brand: "",
         price: "",
         discountPrice: "",
         stock: "",
         sku: "",
+
         description: "",
         specifications: "",
+
         weight: "",
         deliveryTime: "",
         status: "In Stock",
@@ -154,8 +455,13 @@ function AddProduct() {
       setImages([]);
       setVideo(null);
 
-      // Go to seller products
-      navigate("/seller/products");
+      // -------------------------------------------------------
+      // GO TO SELLER PRODUCTS
+      // -------------------------------------------------------
+
+      navigate(
+        "/seller/products"
+      );
 
     } catch (err) {
       console.error(
@@ -167,6 +473,7 @@ function AddProduct() {
         err?.message ||
           "Failed to upload product. Please try again."
       );
+
     } finally {
       setUploading(false);
     }
@@ -177,6 +484,10 @@ function AddProduct() {
 
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow p-8">
 
+        {/* ================================================== */}
+        {/* HEADER */}
+        {/* ================================================== */}
+
         <h1 className="text-4xl font-bold mb-2">
           Add Product
         </h1>
@@ -185,11 +496,35 @@ function AddProduct() {
           Upload a new product to your store.
         </p>
 
-        {/* Error Message */}
+        {/* ================================================== */}
+        {/* ERROR */}
+        {/* ================================================== */}
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
             {error}
+          </div>
+        )}
+
+        {/* ================================================== */}
+        {/* API ERRORS */}
+        {/* ================================================== */}
+
+        {departmentError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {departmentError}
+          </div>
+        )}
+
+        {categoryError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {categoryError}
+          </div>
+        )}
+
+        {subcategoryError && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {subcategoryError}
           </div>
         )}
 
@@ -198,7 +533,9 @@ function AddProduct() {
           className="space-y-8"
         >
 
-          {/* Basic Information */}
+          {/* ================================================== */}
+          {/* BASIC INFORMATION */}
+          {/* ================================================== */}
 
           <div className="grid md:grid-cols-2 gap-6">
 
@@ -221,15 +558,140 @@ function AddProduct() {
               className="border rounded-xl p-4 outline-none focus:border-green-600"
             />
 
-            <input
-              type="text"
-              name="category"
-              placeholder="Category"
-              value={formData.category}
-              onChange={handleChange}
-              className="border rounded-xl p-4 outline-none focus:border-green-600"
+            {/* ================================================= */}
+            {/* DEPARTMENT */}
+            {/* ================================================= */}
+
+            <select
+              name="department"
+              value={formData.department}
+              onChange={
+                handleDepartmentChange
+              }
+              disabled={
+                loadingDepartments
+              }
+              className="border rounded-xl p-4 outline-none focus:border-green-600 bg-white disabled:bg-gray-100"
               required
-            />
+            >
+              <option value="">
+                {loadingDepartments
+                  ? "Loading departments..."
+                  : "Select Department"}
+              </option>
+
+              {departments.map(
+                (department) => (
+                  <option
+                    key={
+                      department.id ??
+                      department.name
+                    }
+                    value={
+                      department.name
+                    }
+                  >
+                    {department.name}
+                  </option>
+                )
+              )}
+            </select>
+
+            {/* ================================================= */}
+            {/* CATEGORY */}
+            {/* ================================================= */}
+
+            <select
+              name="category"
+              value={formData.category}
+              onChange={
+                handleCategoryChange
+              }
+              disabled={
+                !formData.department ||
+                loadingCategories
+              }
+              className="border rounded-xl p-4 outline-none focus:border-green-600 bg-white disabled:bg-gray-100"
+              required
+            >
+              <option value="">
+                {!formData.department
+                  ? "Select Department First"
+                  : loadingCategories
+                  ? "Loading categories..."
+                  : "Select Category"}
+              </option>
+
+              {categories.map(
+                (category) => (
+                  <option
+                    key={
+                      category.id ??
+                      category.name
+                    }
+                    value={
+                      category.name
+                    }
+                  >
+                    {category.name}
+                  </option>
+                )
+              )}
+            </select>
+
+            {/* ================================================= */}
+            {/* SUBCATEGORY */}
+            {/* ================================================= */}
+
+            <select
+              name="subcategory"
+              value={
+                formData.subcategory
+              }
+              onChange={
+                (event) => {
+                  setFormData(
+                    (currentData) => ({
+                      ...currentData,
+                      subcategory:
+                        event.target.value,
+                    })
+                  );
+
+                  setError("");
+                }
+              }
+              disabled={
+                !formData.category ||
+                loadingSubcategories
+              }
+              className="border rounded-xl p-4 outline-none focus:border-green-600 bg-white disabled:bg-gray-100"
+              required
+            >
+              <option value="">
+                {!formData.category
+                  ? "Select Category First"
+                  : loadingSubcategories
+                  ? "Loading subcategories..."
+                  : "Select Subcategory"}
+              </option>
+
+              {subcategories.map(
+                (subcategory) => (
+                  <option
+                    key={
+                      subcategory.id ??
+                      subcategory.name
+                    }
+                    value={
+                      subcategory.name
+                    }
+                  >
+                    {subcategory.name}
+                  </option>
+                )
+              )}
+            </select>
 
             <input
               type="text"
@@ -239,6 +701,10 @@ function AddProduct() {
               onChange={handleChange}
               className="border rounded-xl p-4 outline-none focus:border-green-600"
             />
+
+            {/* ================================================= */}
+            {/* PRICE */}
+            {/* ================================================= */}
 
             <input
               type="number"
@@ -256,7 +722,9 @@ function AddProduct() {
               type="number"
               name="discountPrice"
               placeholder="Discount Price"
-              value={formData.discountPrice}
+              value={
+                formData.discountPrice
+              }
               onChange={handleChange}
               min="0"
               step="0.01"
@@ -285,7 +753,9 @@ function AddProduct() {
 
           </div>
 
-          {/* Description */}
+          {/* ================================================== */}
+          {/* DESCRIPTION */}
+          {/* ================================================== */}
 
           <div>
 
@@ -297,7 +767,9 @@ function AddProduct() {
               name="description"
               rows="5"
               placeholder="Describe your product..."
-              value={formData.description}
+              value={
+                formData.description
+              }
               onChange={handleChange}
               className="w-full border rounded-xl p-4 outline-none focus:border-green-600"
               required
@@ -305,7 +777,9 @@ function AddProduct() {
 
           </div>
 
-          {/* Specifications */}
+          {/* ================================================== */}
+          {/* SPECIFICATIONS */}
+          {/* ================================================== */}
 
           <div>
 
@@ -317,14 +791,18 @@ function AddProduct() {
               name="specifications"
               rows="5"
               placeholder="Enter product specifications..."
-              value={formData.specifications}
+              value={
+                formData.specifications
+              }
               onChange={handleChange}
               className="w-full border rounded-xl p-4 outline-none focus:border-green-600"
             />
 
           </div>
 
-          {/* Upload Images */}
+          {/* ================================================== */}
+          {/* IMAGES */}
+          {/* ================================================== */}
 
           <div>
 
@@ -366,14 +844,16 @@ function AddProduct() {
 
                 <div className="mt-2 space-y-1">
 
-                  {images.map((image, index) => (
-                    <p
-                      key={`${image.name}-${index}`}
-                      className="text-sm text-gray-500"
-                    >
-                      {image.name}
-                    </p>
-                  ))}
+                  {images.map(
+                    (image, index) => (
+                      <p
+                        key={`${image.name}-${index}`}
+                        className="text-sm text-gray-500"
+                      >
+                        {image.name}
+                      </p>
+                    )
+                  )}
 
                 </div>
 
@@ -382,7 +862,9 @@ function AddProduct() {
 
           </div>
 
-          {/* Upload Video */}
+          {/* ================================================== */}
+          {/* VIDEO */}
+          {/* ================================================== */}
 
           <div>
 
@@ -422,7 +904,9 @@ function AddProduct() {
 
           </div>
 
-          {/* Delivery and Status */}
+          {/* ================================================== */}
+          {/* DELIVERY / STATUS */}
+          {/* ================================================== */}
 
           <div className="grid md:grid-cols-2 gap-6">
 
@@ -430,7 +914,9 @@ function AddProduct() {
               type="text"
               name="deliveryTime"
               placeholder="Delivery Time (e.g. 2–5 Days)"
-              value={formData.deliveryTime}
+              value={
+                formData.deliveryTime
+              }
               onChange={handleChange}
               className="border rounded-xl p-4 outline-none focus:border-green-600"
             />
@@ -458,7 +944,9 @@ function AddProduct() {
 
           </div>
 
-          {/* Submit */}
+          {/* ================================================== */}
+          {/* SUBMIT */}
+          {/* ================================================== */}
 
           <button
             type="submit"

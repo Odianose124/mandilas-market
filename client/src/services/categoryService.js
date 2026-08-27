@@ -1,171 +1,169 @@
-﻿const API_URL = import.meta.env.VITE_API_URL;
+﻿import api from "./api";
 
-if (!API_URL) {
-  throw new Error("VITE_API_URL is not configured.");
-}
-
-async function parseError(response, fallbackMessage) {
-  let message = fallbackMessage;
-
-  try {
-    const contentType =
-      response.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      const data = await response.json();
-
-      message =
-        data?.error ||
-        data?.message ||
-        data?.details ||
-        fallbackMessage;
-    } else {
-      const text = await response.text();
-
-      if (text) {
-        message = text;
-      }
-    }
-  } catch {
-    // Keep fallback message.
-  }
-
-  return message;
-}
-
-async function requestJson(
-  url,
-  options,
-  fallbackMessage
-) {
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    const message = await parseError(
-      response,
-      fallbackMessage
-    );
-
-    throw new Error(message);
-  }
-
-  return response.json();
-}
-
-
-// ======================================================
-// GET ALL DEPARTMENTS
-// ======================================================
+/*
+ * ============================================================
+ * DEPARTMENT API
+ * ============================================================
+ *
+ * The backend exposes:
+ *
+ * GET /api/departments
+ *
+ * api.js automatically provides the /api prefix.
+ *
+ * Therefore we use:
+ *
+ * api.get("/departments")
+ *
+ * ============================================================
+ */
 
 export const getDepartments = async () => {
-  return requestJson(
-    `${API_URL}/categories/departments`,
-    undefined,
-    "Failed to load departments."
+  const response = await api.get(
+    "/departments"
   );
+
+  return response.data;
 };
 
 
-// ======================================================
-// GET ALL CATEGORIES
-// ======================================================
+/*
+ * ============================================================
+ * GET ALL CATEGORIES
+ * ============================================================
+ *
+ * Backend:
+ *
+ * GET /api/categories
+ *
+ * ============================================================
+ */
 
 export const getCategories = async () => {
-  return requestJson(
-    `${API_URL}/categories`,
-    undefined,
-    "Failed to load categories."
+  const response = await api.get(
+    "/categories"
   );
+
+  return response.data;
 };
 
 
-// ======================================================
-// GET CATEGORIES BY DEPARTMENT
-// ======================================================
+/*
+ * ============================================================
+ * GET CATEGORIES BY DEPARTMENT
+ * ============================================================
+ *
+ * Backend:
+ *
+ * GET /api/categories/department/{department}
+ *
+ * ============================================================
+ */
 
 export const getCategoriesByDepartment = async (
   department
 ) => {
+
   if (!department) {
     return [];
   }
 
-  return requestJson(
-    `${API_URL}/categories/department/${encodeURIComponent(
+  const response = await api.get(
+    `/categories/department/${encodeURIComponent(
       department
-    )}`,
-    undefined,
-    "Failed to load categories for this department."
+    )}`
   );
+
+  return response.data;
 };
 
 
-// ======================================================
-// GET SUBCATEGORIES BY CATEGORY
-// ======================================================
+/*
+ * ============================================================
+ * GET SUBCATEGORIES BY CATEGORY
+ * ============================================================
+ *
+ * Backend:
+ *
+ * GET /api/categories/{category}/subcategories
+ *
+ * ============================================================
+ */
 
 export const getSubcategories = async (
   category
 ) => {
+
   if (!category) {
     return [];
   }
 
-  return requestJson(
-    `${API_URL}/categories/${encodeURIComponent(
+  const response = await api.get(
+    `/categories/${encodeURIComponent(
       category
-    )}/subcategories`,
-    undefined,
-    "Failed to load subcategories."
+    )}/subcategories`
   );
+
+  return response.data;
 };
 
 
-// ======================================================
-// CREATE CATEGORY — ADMIN
-// ======================================================
+/*
+ * ============================================================
+ * CREATE CATEGORY — ADMIN
+ * ============================================================
+ *
+ * Backend accepts:
+ *
+ * {
+ *   name,
+ *   departmentName
+ * }
+ *
+ * ============================================================
+ */
 
 export const createCategory = async (
   name,
   department
 ) => {
-  return requestJson(
-    `${API_URL}/categories`,
+
+  const response = await api.post(
+    "/categories",
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name,
-        department,
-      }),
-    },
-    "Failed to create category."
+      name,
+      departmentName: department,
+    }
   );
+
+  return response.data;
 };
 
 
-// ======================================================
-// CREATE SUBCATEGORY — ADMIN
-// ======================================================
+/*
+ * ============================================================
+ * CREATE SUBCATEGORY — ADMIN
+ * ============================================================
+ *
+ * Backend:
+ *
+ * POST /api/categories/subcategory
+ *
+ * ============================================================
+ */
 
 export const createSubcategory = async (
   category,
   name
 ) => {
-  return requestJson(
-    `${API_URL}/categories/subcategory`,
+
+  const response = await api.post(
+    "/categories/subcategory",
     {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        category,
-        name,
-      }),
-    },
-    "Failed to create subcategory."
+      category,
+      name,
+    }
   );
+
+  return response.data;
 };
