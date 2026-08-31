@@ -19,6 +19,7 @@ import Products from "./pages/Seller/Products";
 import AddProduct from "./pages/Seller/AddProduct";
 import EditProduct from "./pages/Seller/EditProduct";
 import Store from "./pages/Store/Store";
+import Chat from "./pages/Chat";
 
 
 function App() {
@@ -113,6 +114,11 @@ function App() {
 <Route
   path="/store/:slug"
   element={<Store />}
+/>
+
+<Route
+  path="/chat/:conversationId"
+  element={<Chat />}
 />
 
     </Routes>
