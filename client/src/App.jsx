@@ -20,6 +20,7 @@ import AddProduct from "./pages/Seller/AddProduct";
 import EditProduct from "./pages/Seller/EditProduct";
 import Store from "./pages/Store/Store";
 import Chat from "./pages/Chat";
+import SellerMessages from "./pages/Seller/Messages";
 
 
 function App() {
@@ -119,6 +120,11 @@ function App() {
 <Route
   path="/chat/:conversationId"
   element={<Chat />}
+/>
+
+<Route
+  path="/seller/messages"
+  element={<SellerMessages />}
 />
 
     </Routes>
