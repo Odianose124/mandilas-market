@@ -18,6 +18,7 @@ import SellerDashboard from "./pages/Seller/Dashboard";
 import Products from "./pages/Seller/Products";
 import AddProduct from "./pages/Seller/AddProduct";
 import EditProduct from "./pages/Seller/EditProduct";
+import Store from "./pages/Store/Store";
 
 
 function App() {
@@ -107,6 +108,11 @@ function App() {
 <Route
   path="/seller/edit-product/:id"
   element={<EditProduct />}
+/>
+
+<Route
+  path="/store/:slug"
+  element={<Store />}
 />
 
     </Routes>
