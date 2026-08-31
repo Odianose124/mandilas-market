@@ -7,8 +7,8 @@ import api from "./api";
  *
  * All buyer/seller chat API requests live here.
  *
- * The ProductDetails page and Chat page should NOT make
- * axios requests directly.
+ * ProductDetails and Chat pages should NOT make axios
+ * requests directly.
  */
 
 
@@ -17,26 +17,69 @@ import api from "./api";
  * CREATE OR GET CONVERSATION
  * =========================================================
  *
- * If the buyer has already chatted with this seller about
- * this product, the existing conversation is returned.
+ * A conversation is unique to:
  *
- * Otherwise, a new conversation is created.
+ * buyer + seller + product
+ *
+ * The seller can be identified by either:
+ *
+ * sellerId
+ *
+ * OR
+ *
+ * sellerEmail
+ *
+ * sellerEmail is especially useful for products uploaded
+ * by sellers where the product contains the seller email
+ * but not the seller database ID.
  */
+
 export const getOrCreateConversation = async ({
   buyerId,
   sellerId,
+  sellerEmail,
   productId,
   productName,
 }) => {
+
+  const requestData = {
+    buyerId,
+    productId,
+    productName,
+  };
+
+
+  /*
+   * If sellerId is available, use it.
+   */
+
+  if (
+    sellerId !== undefined &&
+    sellerId !== null &&
+    sellerId !== ""
+  ) {
+    requestData.sellerId = sellerId;
+  }
+
+
+  /*
+   * Otherwise use sellerEmail.
+   */
+
+  if (
+    sellerEmail &&
+    String(sellerEmail).trim()
+  ) {
+    requestData.sellerEmail =
+      String(sellerEmail).trim();
+  }
+
+
   const response = await api.post(
     "/chat/conversations",
-    {
-      buyerId,
-      sellerId,
-      productId,
-      productName,
-    }
+    requestData
   );
+
 
   return response.data;
 };
@@ -47,9 +90,11 @@ export const getOrCreateConversation = async ({
  * GET USER CONVERSATIONS
  * =========================================================
  */
+
 export const getUserConversations = async (
   userId
 ) => {
+
   const response = await api.get(
     `/chat/conversations/user/${userId}`
   );
@@ -63,9 +108,11 @@ export const getUserConversations = async (
  * GET SINGLE CONVERSATION
  * =========================================================
  */
+
 export const getConversation = async (
   conversationId
 ) => {
+
   const response = await api.get(
     `/chat/conversations/${conversationId}`
   );
@@ -79,9 +126,11 @@ export const getConversation = async (
  * GET MESSAGES
  * =========================================================
  */
+
 export const getMessages = async (
   conversationId
 ) => {
+
   const response = await api.get(
     `/chat/conversations/${conversationId}/messages`
   );
@@ -95,11 +144,13 @@ export const getMessages = async (
  * SEND MESSAGE
  * =========================================================
  */
+
 export const sendMessage = async ({
   conversationId,
   senderId,
   content,
 }) => {
+
   const response = await api.post(
     `/chat/conversations/${conversationId}/messages`,
     {
@@ -117,10 +168,12 @@ export const sendMessage = async ({
  * MARK MESSAGES AS READ
  * =========================================================
  */
+
 export const markMessagesAsRead = async ({
   conversationId,
   userId,
 }) => {
+
   const response = await api.put(
     `/chat/conversations/${conversationId}/read/${userId}`
   );
@@ -134,10 +187,12 @@ export const markMessagesAsRead = async ({
  * GET UNREAD COUNT
  * =========================================================
  */
+
 export const getUnreadCount = async ({
   conversationId,
   userId,
 }) => {
+
   const response = await api.get(
     `/chat/conversations/${conversationId}/unread/${userId}`
   );

@@ -12,16 +12,19 @@ import {
   Loader2,
   ArrowLeft,
   Check,
+  MessageCircle,
 } from "lucide-react";
 
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
 import { useProducts } from "../../context/ProductContext";
+import { useAuth } from "../../context/AuthContext";
+
 import reviews from "../../data/reviews";
 
-import {
-  getStoreBySellerEmail,
-} from "../../services/storeService";
+import { getStoreBySellerEmail } from "../../services/storeService";
+import { getOrCreateConversation } from "../../services/chatService";
+
 
 function ProductDetails() {
   const { id } = useParams();
@@ -41,15 +44,39 @@ function ProductDetails() {
     loading: productsLoading,
   } = useProducts();
 
+  const {
+    user,
+    loading: authLoading,
+  } = useAuth();
+
+
+  /*
+   * =========================================================
+   * PRODUCT STATE
+   * =========================================================
+   */
+
   const [product, setProduct] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
+
+  /*
+   * =========================================================
+   * QUANTITY / OPTIONS
+   * =========================================================
+   */
+
   const [quantity, setQuantity] = useState(1);
+
   const [selectedImage, setSelectedImage] = useState("");
 
   const [selectedSize, setSelectedSize] = useState("");
+
   const [selectedColour, setSelectedColour] = useState("");
+
 
   /*
    * =========================================================
@@ -58,11 +85,24 @@ function ProductDetails() {
    */
 
   const [sellerStore, setSellerStore] = useState(null);
+
   const [storeLoading, setStoreLoading] = useState(false);
+
 
   /*
    * =========================================================
-   * LOAD PRODUCT FROM LIVE API
+   * CHAT
+   * =========================================================
+   */
+
+  const [chatLoading, setChatLoading] = useState(false);
+
+  const [chatError, setChatError] = useState("");
+
+
+  /*
+   * =========================================================
+   * LOAD PRODUCT
    * =========================================================
    */
 
@@ -72,6 +112,7 @@ function ProductDetails() {
     const loadProduct = async () => {
       try {
         setLoading(true);
+
         setError("");
 
         const result = await getProduct(id);
@@ -82,11 +123,19 @@ function ProductDetails() {
 
         if (!result) {
           setProduct(null);
+
           setError("Product not found.");
+
           return;
         }
 
+        console.log(
+          "Product details returned:",
+          result
+        );
+
         setProduct(result);
+
       } catch (err) {
         console.error(
           "Failed to load product details:",
@@ -95,11 +144,15 @@ function ProductDetails() {
 
         if (!cancelled) {
           setProduct(null);
+
           setError(
+            err?.response?.data?.message ||
+            err?.response?.data?.error ||
             err?.message ||
-              "Failed to load product."
+            "Failed to load product."
           );
         }
+
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -107,131 +160,208 @@ function ProductDetails() {
       }
     };
 
+
     if (id) {
       loadProduct();
     } else {
       setLoading(false);
+
       setError("Invalid product ID.");
     }
+
 
     return () => {
       cancelled = true;
     };
+
   }, [id, getProduct]);
+
 
   /*
    * =========================================================
    * LOAD SELLER STORE
    * =========================================================
-   *
-   * Once the product has loaded, use the seller's email
-   * to find their active store.
    */
 
   useEffect(() => {
     let cancelled = false;
 
     const loadSellerStore = async () => {
-      if (!product?.sellerEmail) {
+
+      if (!product) {
         setSellerStore(null);
+
         return;
       }
 
+
+      /*
+       * The product needs sellerEmail for the store lookup.
+       */
+
+      if (!product.sellerEmail) {
+
+        console.warn(
+          "Product does not contain sellerEmail:",
+          product
+        );
+
+        setSellerStore(null);
+
+        return;
+      }
+
+
       try {
         setStoreLoading(true);
+
 
         const store =
           await getStoreBySellerEmail(
             product.sellerEmail
           );
 
+
+        console.log(
+          "Seller store returned:",
+          store
+        );
+
+
         if (!cancelled) {
-          setSellerStore(store);
+          setSellerStore(
+            store || null
+          );
         }
+
       } catch (error) {
+
         console.error(
           "Failed to load seller store:",
           error
         );
 
+
         if (!cancelled) {
           setSellerStore(null);
         }
+
       } finally {
+
         if (!cancelled) {
           setStoreLoading(false);
         }
+
       }
     };
 
+
     loadSellerStore();
+
 
     return () => {
       cancelled = true;
     };
+
   }, [product]);
+
 
   /*
    * =========================================================
-   * NORMALIZE PRODUCT IMAGES
+   * PRODUCT IMAGES
    * =========================================================
-   *
-   * Backend:
-   * imageUrl
-   * imageUrls
-   *
-   * Older frontend:
-   * image
-   * images
-   *
-   * We support both.
    */
 
   const productImages = useMemo(() => {
+
     if (!product) {
       return [];
     }
 
+
     const images = [];
+
+
+    /*
+     * imageUrl
+     */
 
     if (
       typeof product.imageUrl === "string" &&
       product.imageUrl.trim()
     ) {
-      images.push(product.imageUrl.trim());
+      images.push(
+        product.imageUrl.trim()
+      );
     }
 
+
+    /*
+     * imageUrls
+     */
+
     if (Array.isArray(product.imageUrls)) {
-      product.imageUrls.forEach((image) => {
-        if (
-          typeof image === "string" &&
-          image.trim()
-        ) {
-          images.push(image.trim());
+
+      product.imageUrls.forEach(
+        (image) => {
+
+          if (
+            typeof image === "string" &&
+            image.trim()
+          ) {
+            images.push(
+              image.trim()
+            );
+          }
+
         }
-      });
+      );
     }
+
+
+    /*
+     * image
+     */
 
     if (
       typeof product.image === "string" &&
       product.image.trim()
     ) {
-      images.push(product.image.trim());
+      images.push(
+        product.image.trim()
+      );
     }
+
+
+    /*
+     * images
+     */
 
     if (Array.isArray(product.images)) {
-      product.images.forEach((image) => {
-        if (
-          typeof image === "string" &&
-          image.trim()
-        ) {
-          images.push(image.trim());
+
+      product.images.forEach(
+        (image) => {
+
+          if (
+            typeof image === "string" &&
+            image.trim()
+          ) {
+            images.push(
+              image.trim()
+            );
+          }
+
         }
-      });
+      );
     }
 
-    return [...new Set(images)];
+
+    return [
+      ...new Set(images)
+    ];
+
   }, [product]);
+
 
   /*
    * =========================================================
@@ -240,12 +370,21 @@ function ProductDetails() {
    */
 
   useEffect(() => {
+
     if (productImages.length > 0) {
-      setSelectedImage(productImages[0]);
+
+      setSelectedImage(
+        productImages[0]
+      );
+
     } else {
+
       setSelectedImage("");
+
     }
+
   }, [productImages]);
+
 
   /*
    * =========================================================
@@ -253,39 +392,42 @@ function ProductDetails() {
    * =========================================================
    */
 
-  const price = Number(
-    product?.price || 0
-  );
+  const price =
+    Number(product?.price || 0);
 
-  const discountPrice = Number(
-    product?.discountPrice || 0
-  );
+
+  const discountPrice =
+    Number(product?.discountPrice || 0);
+
 
   const hasDiscount =
     discountPrice > 0 &&
     discountPrice < price;
 
-  const displayPrice = hasDiscount
-    ? discountPrice
-    : price;
 
-  const stock = Number(
-    product?.stock || 0
-  );
+  const displayPrice =
+    hasDiscount
+      ? discountPrice
+      : price;
 
-  const oldPrice = hasDiscount
-    ? price
-    : Number(
-        product?.oldPrice || 0
-      );
 
-  const rating = Number(
-    product?.rating || 0
-  );
+  const stock =
+    Number(product?.stock || 0);
 
-  const reviewCount = Number(
-    product?.reviews || 0
-  );
+
+  const oldPrice =
+    hasDiscount
+      ? price
+      : Number(product?.oldPrice || 0);
+
+
+  const rating =
+    Number(product?.rating || 0);
+
+
+  const reviewCount =
+    Number(product?.reviews || 0);
+
 
   /*
    * =========================================================
@@ -295,41 +437,50 @@ function ProductDetails() {
 
   const specifications =
     product?.specifications &&
-    typeof product.specifications ===
-      "object"
+    typeof product.specifications === "object"
       ? product.specifications
       : {};
 
-  const sizes = Array.isArray(
-    specifications.sizes
-  )
-    ? specifications.sizes
-    : [];
+
+  const sizes =
+    Array.isArray(specifications.sizes)
+      ? specifications.sizes
+      : [];
+
 
   const colours = [];
 
+
   if (specifications.colour) {
+
     colours.push(
       specifications.colour
     );
+
   }
+
 
   if (
     Array.isArray(
       specifications.colours
     )
   ) {
+
     specifications.colours.forEach(
       (colour) => {
+
         if (
           colour &&
           !colours.includes(colour)
         ) {
           colours.push(colour);
         }
+
       }
     );
+
   }
+
 
   /*
    * =========================================================
@@ -341,6 +492,7 @@ function ProductDetails() {
     product
       ? isInWishlist(product.id)
       : false;
+
 
   /*
    * =========================================================
@@ -357,6 +509,7 @@ function ProductDetails() {
         )
       : [];
 
+
   /*
    * =========================================================
    * SIMILAR PRODUCTS
@@ -364,6 +517,7 @@ function ProductDetails() {
    */
 
   const similarProducts = useMemo(() => {
+
     if (
       !product ||
       !Array.isArray(products)
@@ -371,8 +525,10 @@ function ProductDetails() {
       return [];
     }
 
+
     return products
       .filter((item) => {
+
         if (
           String(item.id) ===
           String(product.id)
@@ -380,14 +536,12 @@ function ProductDetails() {
           return false;
         }
 
-        /*
-         * Prefer matching subcategory.
-         */
 
         if (
           product.subcategory &&
           item.subcategory
         ) {
+
           return (
             String(
               item.subcategory
@@ -396,16 +550,15 @@ function ProductDetails() {
               product.subcategory
             ).toLowerCase()
           );
+
         }
 
-        /*
-         * Otherwise match category.
-         */
 
         if (
           product.category &&
           item.category
         ) {
+
           return (
             String(
               item.category
@@ -414,12 +567,17 @@ function ProductDetails() {
               product.category
             ).toLowerCase()
           );
+
         }
 
+
         return false;
+
       })
       .slice(0, 4);
+
   }, [products, product]);
+
 
   /*
    * =========================================================
@@ -428,21 +586,30 @@ function ProductDetails() {
    */
 
   const increaseQuantity = () => {
+
     if (quantity < stock) {
+
       setQuantity(
-        (current) => current + 1
+        (current) =>
+          current + 1
       );
+
     }
+
   };
 
+
   const decreaseQuantity = () => {
+
     setQuantity(
       (current) =>
         current > 1
           ? current - 1
           : 1
     );
+
   };
+
 
   /*
    * =========================================================
@@ -451,19 +618,24 @@ function ProductDetails() {
    */
 
   const handleAddToCart = () => {
+
     if (!product) {
       return;
     }
+
 
     if (stock <= 0) {
       return;
     }
 
+
     addToCart(
       product,
       quantity
     );
+
   };
+
 
   /*
    * =========================================================
@@ -472,18 +644,281 @@ function ProductDetails() {
    */
 
   const handleWishlist = () => {
+
     if (!product) {
       return;
     }
 
+
     if (wishlistActive) {
+
       removeFromWishlist(
         product.id
       );
+
     } else {
-      addToWishlist(product);
+
+      addToWishlist(
+        product
+      );
+
     }
+
   };
+
+    /*
+   * =========================================================
+   * CHAT SELLER
+   * =========================================================
+   */
+
+  const handleChatSeller = async () => {
+
+    setChatError("");
+
+
+    /*
+     * =======================================================
+     * MAKE SURE PRODUCT EXISTS
+     * =======================================================
+     */
+
+    if (!product) {
+
+      setChatError(
+        "Product information is unavailable."
+      );
+
+      return;
+    }
+
+
+    /*
+     * =======================================================
+     * CHECK LOGIN
+     * =======================================================
+     */
+
+    if (!user) {
+
+      navigate(
+        `/login?redirect=/product/${product.id}`
+      );
+
+      return;
+    }
+
+
+    /*
+     * =======================================================
+     * GET CURRENT BUYER ID
+     * =======================================================
+     */
+
+    const buyerId =
+      Number(user.id);
+
+
+    if (
+      !user.id ||
+      Number.isNaN(buyerId)
+    ) {
+
+      setChatError(
+        "Your account ID could not be found. Please log out and log in again."
+      );
+
+      return;
+    }
+
+
+    /*
+     * =======================================================
+     * GET SELLER ID
+     *
+     * We support several possible backend response formats.
+     * =======================================================
+     */
+
+    const possibleSellerIds = [
+
+      product?.sellerId,
+
+      product?.seller?.id,
+
+      product?.seller?.userId,
+
+      product?.seller?.sellerId,
+
+      sellerStore?.sellerId,
+
+      sellerStore?.userId,
+
+      sellerStore?.ownerId,
+
+      sellerStore?.seller?.id,
+
+      sellerStore?.seller?.userId,
+
+      sellerStore?.owner?.id,
+
+    ];
+
+
+    const sellerIdValue =
+      possibleSellerIds.find(
+        (value) =>
+          value !== undefined &&
+          value !== null &&
+          value !== ""
+      );
+
+
+    const sellerId =
+      Number(sellerIdValue);
+
+
+    console.log(
+      "Chat Seller information:",
+      {
+        buyerId,
+        sellerId,
+        sellerIdValue,
+        product,
+        sellerStore,
+      }
+    );
+
+
+    /*
+     * =======================================================
+     * SELLER ID NOT FOUND
+     * =======================================================
+     */
+
+    if (
+      !sellerIdValue ||
+      Number.isNaN(sellerId) ||
+      sellerId <= 0
+    ) {
+
+      setChatError(
+        "This seller cannot be contacted because the seller information is unavailable."
+      );
+
+      return;
+    }
+
+
+    /*
+     * =======================================================
+     * PREVENT SELF CHAT
+     * =======================================================
+     */
+
+    if (
+      buyerId === sellerId
+    ) {
+
+      setChatError(
+        "You cannot start a chat with yourself."
+      );
+
+      return;
+    }
+
+
+    /*
+     * =======================================================
+     * CREATE / GET CONVERSATION
+     * =======================================================
+     */
+
+    try {
+
+      setChatLoading(true);
+
+
+      const conversation =
+        await getOrCreateConversation({
+
+          buyerId,
+
+          sellerId,
+
+          productId:
+            Number(product.id),
+
+          productName:
+            product.name || "",
+
+        });
+
+
+      console.log(
+        "Conversation returned:",
+        conversation
+      );
+
+
+      /*
+       * =====================================================
+       * CHECK CONVERSATION
+       * =====================================================
+       */
+
+      if (
+        !conversation ||
+        !conversation.id
+      ) {
+
+        throw new Error(
+          "The conversation was created but no conversation ID was returned."
+        );
+
+      }
+
+
+      /*
+       * =====================================================
+       * OPEN CHAT
+       * =====================================================
+       */
+
+      navigate(
+        `/chat/${conversation.id}`
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Failed to start chat:",
+        error
+      );
+
+
+      setChatError(
+
+        error?.response?.data?.message ||
+
+        error?.response?.data?.error ||
+
+        error?.message ||
+
+        "Unable to start chat with this seller."
+
+      );
+
+
+    } finally {
+
+      setChatLoading(false);
+
+    }
+
+  };
+
 
   /*
    * =========================================================
@@ -491,9 +926,16 @@ function ProductDetails() {
    * =========================================================
    */
 
-  if (loading || productsLoading) {
+  if (
+    loading ||
+    productsLoading ||
+    authLoading
+  ) {
+
     return (
+
       <section className="min-h-[70vh] flex items-center justify-center px-4">
+
         <div className="text-center">
 
           <Loader2
@@ -506,9 +948,13 @@ function ProductDetails() {
           </p>
 
         </div>
+
       </section>
+
     );
+
   }
+
 
   /*
    * =========================================================
@@ -517,7 +963,9 @@ function ProductDetails() {
    */
 
   if (!product) {
+
     return (
+
       <section className="max-w-7xl mx-auto px-4 py-20">
 
         <div className="text-center">
@@ -536,15 +984,21 @@ function ProductDetails() {
             onClick={() => navigate(-1)}
             className="mt-6 inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition"
           >
+
             <ArrowLeft size={18} />
+
             Go Back
+
           </button>
 
         </div>
 
       </section>
+
     );
+
   }
+
 
   /*
    * =========================================================
@@ -553,7 +1007,9 @@ function ProductDetails() {
    */
 
   return (
+
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
 
       {/* =====================================================
           BACK / BREADCRUMB
@@ -566,9 +1022,13 @@ function ProductDetails() {
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 text-green-700 font-semibold hover:underline"
         >
+
           <ArrowLeft size={18} />
+
           Back to products
+
         </button>
+
 
         <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500 mt-4">
 
@@ -588,6 +1048,7 @@ function ProductDetails() {
             Shop
           </Link>
 
+
           {product.department && (
             <>
               <span>/</span>
@@ -597,6 +1058,7 @@ function ProductDetails() {
               </span>
             </>
           )}
+
 
           {product.category && (
             <>
@@ -608,6 +1070,7 @@ function ProductDetails() {
             </>
           )}
 
+
           {product.subcategory && (
             <>
               <span>/</span>
@@ -617,6 +1080,7 @@ function ProductDetails() {
               </span>
             </>
           )}
+
 
           <span>/</span>
 
@@ -628,11 +1092,13 @@ function ProductDetails() {
 
       </div>
 
+
       {/* =====================================================
           MAIN PRODUCT AREA
           ===================================================== */}
 
       <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
+
 
         {/* ===================================================
             LEFT — IMAGES
@@ -643,6 +1109,7 @@ function ProductDetails() {
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
 
             {selectedImage ? (
+
               <img
                 src={selectedImage}
                 alt={
@@ -651,26 +1118,31 @@ function ProductDetails() {
                 }
                 className="w-full h-[420px] sm:h-[500px] lg:h-[550px] object-contain bg-gray-50"
               />
+
             ) : (
+
               <div className="w-full h-[420px] sm:h-[500px] lg:h-[550px] bg-gray-100 flex items-center justify-center text-gray-400">
+
                 No product image
+
               </div>
+
             )}
 
           </div>
 
+
           {/* THUMBNAILS */}
 
           {productImages.length > 0 && (
+
             <div className="grid grid-cols-4 gap-3 mt-4">
 
               {productImages
                 .slice(0, 8)
                 .map(
-                  (
-                    image,
-                    index
-                  ) => (
+                  (image, index) => (
+
                     <button
                       key={`${image}-${index}`}
                       type="button"
@@ -680,29 +1152,32 @@ function ProductDetails() {
                         )
                       }
                       className={`rounded-lg overflow-hidden border-2 transition ${
-                        selectedImage ===
-                        image
+                        selectedImage === image
                           ? "border-green-600"
                           : "border-gray-200 hover:border-green-400"
                       }`}
                     >
+
                       <img
                         src={image}
-                        alt={`${product.name} ${
-                          index + 1
-                        }`}
+                        alt={`${product.name} ${index + 1}`}
                         className="w-full aspect-square object-cover"
                       />
+
                     </button>
+
                   )
                 )}
 
             </div>
+
           )}
+
 
           {/* VIDEO */}
 
           {product.videoUrl && (
+
             <div className="mt-6 bg-white rounded-xl shadow-sm border p-4">
 
               <h3 className="font-bold text-lg mb-4">
@@ -716,9 +1191,11 @@ function ProductDetails() {
               />
 
             </div>
+
           )}
 
         </div>
+
 
         {/* ===================================================
             RIGHT — PRODUCT INFORMATION
@@ -726,22 +1203,30 @@ function ProductDetails() {
 
         <div>
 
+
           {/* PRODUCT NAME */}
 
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
             {product.name}
           </h1>
 
+
           {/* BRAND */}
 
           {product.brand && (
+
             <p className="text-gray-500 mt-2">
+
               Brand:{" "}
+
               <span className="font-semibold text-gray-700">
                 {product.brand}
               </span>
+
             </p>
+
           )}
+
 
           {/* RATING */}
 
@@ -751,35 +1236,42 @@ function ProductDetails() {
 
               {[1, 2, 3, 4, 5].map(
                 (star) => (
+
                   <Star
                     key={star}
                     size={20}
                     fill={
                       star <=
-                      Math.round(
-                        rating
-                      )
+                      Math.round(rating)
                         ? "#fbbf24"
                         : "transparent"
                     }
                     color="#fbbf24"
                   />
+
                 )
               )}
 
             </div>
 
+
             <span className="text-gray-600">
+
               {rating > 0
                 ? rating.toFixed(1)
                 : "No rating"}
+
             </span>
 
+
             <span className="text-gray-500">
+
               ({reviewCount} Reviews)
+
             </span>
 
           </div>
+
 
           {/* PRICE */}
 
@@ -788,61 +1280,87 @@ function ProductDetails() {
             <div className="flex items-center gap-3 flex-wrap">
 
               <h2 className="text-3xl sm:text-4xl font-bold text-green-700">
+
                 ₦
                 {displayPrice.toLocaleString()}
+
               </h2>
 
+
               {hasDiscount && (
+
                 <span className="text-gray-400 line-through text-lg">
+
                   ₦
                   {oldPrice.toLocaleString()}
+
                 </span>
+
               )}
 
             </div>
 
+
             {hasDiscount && (
+
               <p className="text-red-600 font-semibold mt-2">
+
                 Save ₦
                 {(
                   price -
                   discountPrice
                 ).toLocaleString()}
+
               </p>
+
             )}
 
           </div>
+
 
           {/* STOCK */}
 
           <div className="mt-5">
 
             {stock > 0 ? (
+
               <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm font-semibold">
+
                 <Check size={16} />
+
                 {stock} available
+
               </span>
+
             ) : (
+
               <span className="inline-flex bg-red-50 text-red-600 px-3 py-2 rounded-lg text-sm font-semibold">
+
                 Out of stock
+
               </span>
+
             )}
 
           </div>
 
+
           {/* SIZE */}
 
           {sizes.length > 0 && (
+
             <div className="mt-8">
 
               <h3 className="font-semibold mb-3">
                 Available Sizes
               </h3>
 
+
               <div className="flex flex-wrap gap-3">
 
                 {sizes.map(
                   (size) => (
+
                     <button
                       key={size}
                       type="button"
@@ -852,35 +1370,42 @@ function ProductDetails() {
                         )
                       }
                       className={`min-w-[52px] px-4 py-3 border rounded-lg transition ${
-                        selectedSize ===
-                        size
+                        selectedSize === size
                           ? "bg-green-600 text-white border-green-600"
                           : "border-gray-300 hover:border-green-600 hover:text-green-700"
                       }`}
                     >
+
                       {size}
+
                     </button>
+
                   )
                 )}
 
               </div>
 
             </div>
+
           )}
+
 
           {/* COLOUR */}
 
           {colours.length > 0 && (
+
             <div className="mt-8">
 
               <h3 className="font-semibold mb-3">
                 Colour
               </h3>
 
+
               <div className="flex flex-wrap gap-3">
 
                 {colours.map(
                   (colour) => (
+
                     <button
                       key={colour}
                       type="button"
@@ -890,21 +1415,25 @@ function ProductDetails() {
                         )
                       }
                       className={`px-4 py-2 rounded-lg border transition ${
-                        selectedColour ===
-                        colour
+                        selectedColour === colour
                           ? "bg-green-600 text-white border-green-600"
                           : "border-gray-300 hover:border-green-600"
                       }`}
                     >
+
                       {colour}
+
                     </button>
+
                   )
                 )}
 
               </div>
 
             </div>
+
           )}
+
 
           {/* QUANTITY */}
 
@@ -914,33 +1443,28 @@ function ProductDetails() {
               Quantity
             </h3>
 
+
             <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit bg-white">
 
               <button
                 type="button"
-                onClick={
-                  decreaseQuantity
-                }
-                disabled={
-                  quantity <= 1
-                }
+                onClick={decreaseQuantity}
+                disabled={quantity <= 1}
                 className="px-5 py-3 text-xl hover:bg-gray-100 disabled:opacity-40 transition"
               >
                 -
               </button>
 
+
               <span className="px-7 font-semibold">
                 {quantity}
               </span>
 
+
               <button
                 type="button"
-                onClick={
-                  increaseQuantity
-                }
-                disabled={
-                  quantity >= stock
-                }
+                onClick={increaseQuantity}
+                disabled={quantity >= stock}
                 className="px-5 py-3 text-xl hover:bg-gray-100 disabled:opacity-40 transition"
               >
                 +
@@ -950,15 +1474,14 @@ function ProductDetails() {
 
           </div>
 
+
           {/* ACTION BUTTONS */}
 
           <div className="flex gap-3 sm:gap-4 mt-8">
 
             <button
               type="button"
-              onClick={
-                handleAddToCart
-              }
+              onClick={handleAddToCart}
               disabled={stock <= 0}
               className={`flex-1 h-14 rounded-xl text-white flex items-center justify-center gap-3 font-semibold transition ${
                 stock > 0
@@ -966,20 +1489,19 @@ function ProductDetails() {
                   : "bg-gray-400 cursor-not-allowed"
               }`}
             >
-              <ShoppingCart
-                size={21}
-              />
+
+              <ShoppingCart size={21} />
 
               {stock > 0
                 ? `Add ${quantity} To Cart`
                 : "Out of Stock"}
+
             </button>
+
 
             <button
               type="button"
-              onClick={
-                handleWishlist
-              }
+              onClick={handleWishlist}
               className={`w-14 h-14 rounded-xl border flex items-center justify-center transition ${
                 wishlistActive
                   ? "bg-red-50 border-red-500"
@@ -991,6 +1513,7 @@ function ProductDetails() {
                   : "Add to Wishlist"
               }
             >
+
               <Heart
                 size={23}
                 className={
@@ -999,9 +1522,11 @@ function ProductDetails() {
                     : "text-gray-700"
                 }
               />
+
             </button>
 
           </div>
+
 
           {/* DELIVERY / SECURITY */}
 
@@ -1009,7 +1534,9 @@ function ProductDetails() {
 
             <div className="flex gap-4">
 
-              <Truck className="text-green-700 shrink-0" />
+              <Truck
+                className="text-green-700 shrink-0"
+              />
 
               <div>
 
@@ -1018,18 +1545,23 @@ function ProductDetails() {
                 </h4>
 
                 <p className="text-gray-500 text-sm mt-1">
+
                   {product.deliveryTime ||
                     product.delivery ||
                     "Fast delivery anywhere in Nigeria."}
+
                 </p>
 
               </div>
 
             </div>
 
+
             <div className="flex gap-4">
 
-              <ShieldCheck className="text-green-700 shrink-0" />
+              <ShieldCheck
+                className="text-green-700 shrink-0"
+              />
 
               <div>
 
@@ -1038,16 +1570,21 @@ function ProductDetails() {
                 </h4>
 
                 <p className="text-gray-500 text-sm mt-1">
+
                   Product sold by an approved Mandilas Market seller.
+
                 </p>
 
               </div>
 
             </div>
 
+
             <div className="flex gap-4">
 
-              <RotateCcw className="text-green-700 shrink-0" />
+              <RotateCcw
+                className="text-green-700 shrink-0"
+              />
 
               <div>
 
@@ -1056,8 +1593,10 @@ function ProductDetails() {
                 </h4>
 
                 <p className="text-gray-500 text-sm mt-1">
+
                   {product.returnPolicy ||
                     "Returns accepted according to seller policy."}
+
                 </p>
 
               </div>
@@ -1066,7 +1605,7 @@ function ProductDetails() {
 
           </div>
 
-          {/* =================================================
+                    {/* =================================================
               SELLER CARD
               ================================================= */}
 
@@ -1083,13 +1622,19 @@ function ProductDetails() {
 
               </div>
 
+
               <div className="min-w-0">
 
                 <h3 className="text-lg font-bold truncate">
-                  {product.seller ||
+
+                  {sellerStore?.storeName ||
+                    sellerStore?.name ||
+                    product.seller ||
                     product.sellerName ||
                     "Mandilas Seller"}
+
                 </h3>
+
 
                 <p className="text-gray-500">
                   Verified Seller
@@ -1098,6 +1643,7 @@ function ProductDetails() {
               </div>
 
             </div>
+
 
             <div className="flex items-center gap-2 mt-5">
 
@@ -1108,51 +1654,100 @@ function ProductDetails() {
               />
 
               <span className="font-semibold">
+
                 {rating > 0
                   ? rating.toFixed(1)
                   : "New"}{" "}
                 Seller Rating
+
               </span>
 
             </div>
+
+
+            {/* CHAT ERROR */}
+
+            {chatError && (
+
+              <div className="mt-5 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+
+                {chatError}
+
+              </div>
+
+            )}
+
 
             {/* SELLER ACTIONS */}
 
             <div className="grid grid-cols-2 gap-3 mt-6">
 
+
               {/* CHAT SELLER */}
 
               <button
                 type="button"
-                className="h-12 rounded-lg border border-green-600 text-green-700 font-semibold hover:bg-green-50 transition"
+                onClick={handleChatSeller}
+                disabled={chatLoading}
+                className="h-12 rounded-lg border border-green-600 text-green-700 font-semibold hover:bg-green-50 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Chat Seller
+
+                {chatLoading ? (
+
+                  <Loader2
+                    size={18}
+                    className="animate-spin"
+                  />
+
+                ) : (
+
+                  <MessageCircle
+                    size={18}
+                  />
+
+                )}
+
+
+                {chatLoading
+                  ? "Opening Chat..."
+                  : "Chat Seller"}
+
               </button>
+
 
               {/* VISIT STORE */}
 
               {sellerStore?.slug ? (
+
                 <Link
                   to={`/store/${sellerStore.slug}`}
                   className="h-12 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700 transition flex items-center justify-center"
                 >
+
                   Visit Store
+
                 </Link>
+
               ) : (
+
                 <button
                   type="button"
                   disabled
                   className="h-12 rounded-lg bg-gray-300 text-gray-500 font-semibold cursor-not-allowed"
                 >
+
                   {storeLoading
                     ? "Loading Store..."
                     : "Store Unavailable"}
+
                 </button>
+
               )}
 
             </div>
 
           </div>
+
 
           {/* =================================================
               PRODUCT DESCRIPTION
@@ -1164,17 +1759,25 @@ function ProductDetails() {
               Product Description
             </h2>
 
+
             {product.description ? (
+
               <p className="text-gray-600 leading-8 whitespace-pre-line">
+
                 {product.description}
+
               </p>
+
             ) : (
+
               <p className="text-gray-500">
                 No product description provided.
               </p>
+
             )}
 
           </div>
+
 
           {/* =================================================
               PRODUCT SPECIFICATIONS
@@ -1186,9 +1789,12 @@ function ProductDetails() {
               Product Specifications
             </h2>
 
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
+
               {product.brand && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1200,9 +1806,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.department && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1214,9 +1823,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.category && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1228,9 +1840,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.subcategory && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1242,9 +1857,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {specifications.material && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1256,9 +1874,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {specifications.colour && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1270,9 +1891,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {specifications.condition && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1284,9 +1908,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {specifications.weight && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1298,9 +1925,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.sku && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1312,9 +1942,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.warranty && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1326,9 +1959,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.deliveryTime && (
+
                 <div className="flex justify-between gap-4 border-b pb-3">
 
                   <span className="text-gray-500">
@@ -1340,9 +1976,12 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
+
               {product.returnPolicy && (
+
                 <div className="flex justify-between gap-4 border-b pb-3 md:col-span-2">
 
                   <span className="text-gray-500">
@@ -1354,6 +1993,7 @@ function ProductDetails() {
                   </span>
 
                 </div>
+
               )}
 
             </div>
@@ -1363,6 +2003,7 @@ function ProductDetails() {
         </div>
 
       </div>
+
 
       {/* =====================================================
           CUSTOMER REVIEWS
@@ -1374,16 +2015,22 @@ function ProductDetails() {
           Customer Reviews
         </h2>
 
-        {productReviews.length ===
-        0 ? (
+
+        {productReviews.length === 0 ? (
+
           <div className="bg-white rounded-xl shadow-sm border p-8 text-center text-gray-500">
+
             No reviews yet.
+
           </div>
+
         ) : (
+
           <div className="space-y-6">
 
             {productReviews.map(
               (review) => (
+
                 <div
                   key={review.id}
                   className="bg-white rounded-xl shadow-sm border p-6"
@@ -1403,24 +2050,26 @@ function ProductDetails() {
 
                     </div>
 
+
                     <div className="flex">
 
                       {[1, 2, 3, 4, 5].map(
                         (star) => (
+
                           <Star
                             key={star}
                             size={18}
                             fill={
                               star <=
                               Number(
-                                review.rating ||
-                                  0
+                                review.rating || 0
                               )
                                 ? "#fbbf24"
                                 : "transparent"
                             }
                             color="#fbbf24"
                           />
+
                         )
                       )}
 
@@ -1428,65 +2077,81 @@ function ProductDetails() {
 
                   </div>
 
+
                   <p className="text-gray-600 leading-7 mt-5">
+
                     {review.comment}
+
                   </p>
 
                 </div>
+
               )
             )}
 
           </div>
+
         )}
 
       </div>
+
 
       {/* =====================================================
           SIMILAR PRODUCTS
           ===================================================== */}
 
       {similarProducts.length > 0 && (
+
         <div className="mt-16">
 
           <h2 className="text-3xl font-bold mb-8">
             Similar Products
           </h2>
 
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
             {similarProducts.map(
               (item) => {
+
                 const itemImage =
                   item.imageUrl ||
-                  (Array.isArray(
-                    item.imageUrls
-                  )
-                    ? item.imageUrls[0]
-                    : "") ||
+                  (
+                    Array.isArray(
+                      item.imageUrls
+                    )
+                      ? item.imageUrls[0]
+                      : ""
+                  ) ||
                   item.image ||
                   "";
+
 
                 const itemPrice =
                   Number(
                     item.price || 0
                   );
 
+
                 const itemDiscount =
                   Number(
-                    item.discountPrice ||
-                      0
+                    item.discountPrice || 0
                   );
+
 
                 const itemHasDiscount =
                   itemDiscount > 0 &&
                   itemDiscount < itemPrice;
+
 
                 const itemDisplayPrice =
                   itemHasDiscount
                     ? itemDiscount
                     : itemPrice;
 
+
                 return (
+
                   <Link
                     key={item.id}
                     to={`/product/${item.id}`}
@@ -1496,6 +2161,7 @@ function ProductDetails() {
                     <div className="relative overflow-hidden">
 
                       {itemImage ? (
+
                         <img
                           src={itemImage}
                           alt={
@@ -1504,38 +2170,59 @@ function ProductDetails() {
                           }
                           className="w-full aspect-square object-cover group-hover:scale-105 transition duration-300"
                         />
+
                       ) : (
+
                         <div className="w-full aspect-square bg-gray-100 flex items-center justify-center text-gray-400">
+
                           No Image
+
                         </div>
+
                       )}
 
+
                       {itemHasDiscount && (
+
                         <span className="absolute top-3 left-3 bg-red-600 text-white text-xs px-2 py-1 rounded font-semibold">
+
                           SALE
+
                         </span>
+
                       )}
 
                     </div>
 
+
                     <div className="p-4">
 
                       <h3 className="font-semibold line-clamp-2 min-h-[48px]">
+
                         {item.name}
+
                       </h3>
+
 
                       <div className="mt-3">
 
                         <span className="text-green-700 font-bold text-lg">
+
                           ₦
                           {itemDisplayPrice.toLocaleString()}
+
                         </span>
 
+
                         {itemHasDiscount && (
+
                           <span className="ml-2 text-gray-400 line-through text-sm">
+
                             ₦
                             {itemPrice.toLocaleString()}
+
                           </span>
+
                         )}
 
                       </div>
@@ -1543,17 +2230,24 @@ function ProductDetails() {
                     </div>
 
                   </Link>
+
                 );
+
               }
+
             )}
 
           </div>
 
         </div>
+
       )}
 
     </section>
+
   );
+
 }
+
 
 export default ProductDetails;

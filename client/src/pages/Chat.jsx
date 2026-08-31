@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  Link,
+  useParams,
+} from "react-router-dom";
+
 import {
   ArrowLeft,
   Send,
@@ -15,9 +24,23 @@ import {
   markMessagesAsRead,
 } from "../services/chatService";
 
+import {
+  useAuth,
+} from "../context/AuthContext";
+
 
 function Chat() {
-  const { conversationId } = useParams();
+
+  const {
+    conversationId,
+  } = useParams();
+
+
+  const {
+    user,
+    loading: authLoading,
+  } = useAuth();
+
 
   const [conversation, setConversation] =
     useState(null);
@@ -37,44 +60,21 @@ function Chat() {
   const [error, setError] =
     useState("");
 
+
   const messagesEndRef =
     useRef(null);
 
 
   /*
    * =========================================================
-   * CURRENT USER
+   * CURRENT USER ID
    * =========================================================
-   *
-   * For now we read the logged-in user from localStorage.
-   *
-   * We'll connect this to your actual authentication context
-   * once the chat interface is working.
    */
 
-  const getCurrentUserId = () => {
-    const possibleUsers = [
-      localStorage.getItem("userId"),
-      localStorage.getItem("user_id"),
-      localStorage.getItem("currentUserId"),
-    ];
-
-    for (const value of possibleUsers) {
-      if (value && value !== "null") {
-        const numberValue = Number(value);
-
-        if (!Number.isNaN(numberValue)) {
-          return numberValue;
-        }
-      }
-    }
-
-    return null;
-  };
-
-
   const currentUserId =
-    getCurrentUserId();
+    user?.id
+      ? Number(user.id)
+      : null;
 
 
   /*
@@ -84,34 +84,55 @@ function Chat() {
    */
 
   useEffect(() => {
+
     let cancelled = false;
 
+
     const loadChat = async () => {
+
       if (!conversationId) {
-        setError("Invalid conversation.");
+
+        setError(
+          "Invalid conversation."
+        );
+
         setLoading(false);
+
         return;
       }
 
+
       try {
+
         setLoading(true);
         setError("");
+
 
         const [
           conversationData,
           messagesData,
         ] = await Promise.all([
-          getConversation(conversationId),
-          getMessages(conversationId),
+
+          getConversation(
+            Number(conversationId)
+          ),
+
+          getMessages(
+            Number(conversationId)
+          ),
+
         ]);
+
 
         if (cancelled) {
           return;
         }
 
+
         setConversation(
           conversationData
         );
+
 
         setMessages(
           Array.isArray(messagesData)
@@ -121,33 +142,47 @@ function Chat() {
 
 
         /*
-         * Mark messages as read when we enter
-         * the conversation.
+         * Mark messages as read.
          */
-        if (currentUserId) {
+
+        if (
+          currentUserId &&
+          !Number.isNaN(currentUserId)
+        ) {
+
           try {
+
             await markMessagesAsRead({
+
               conversationId:
                 Number(conversationId),
 
               userId:
                 currentUserId,
+
             });
+
           } catch (readError) {
+
             console.error(
               "Failed to mark messages as read:",
               readError
             );
+
           }
         }
 
+
       } catch (err) {
+
         console.error(
           "Failed to load chat:",
           err
         );
 
+
         if (!cancelled) {
+
           setError(
             err?.response?.data?.message ||
             err?.message ||
@@ -155,20 +190,32 @@ function Chat() {
           );
         }
 
+
       } finally {
+
         if (!cancelled) {
           setLoading(false);
         }
       }
+
     };
 
-    loadChat();
+
+    if (!authLoading) {
+      loadChat();
+    }
+
 
     return () => {
       cancelled = true;
     };
 
-  }, [conversationId]);
+
+  }, [
+    conversationId,
+    currentUserId,
+    authLoading,
+  ]);
 
 
   /*
@@ -178,9 +225,11 @@ function Chat() {
    */
 
   useEffect(() => {
+
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
+
   }, [messages]);
 
 
@@ -190,76 +239,96 @@ function Chat() {
    * =========================================================
    */
 
-  const handleSendMessage = async (
-    event
-  ) => {
+  const handleSendMessage =
+    async (event) => {
 
-    event.preventDefault();
-
-    const trimmedMessage =
-      message.trim();
-
-    if (!trimmedMessage) {
-      return;
-    }
-
-    if (!currentUserId) {
-      setError(
-        "Please log in before sending a message."
-      );
-      return;
-    }
-
-    if (sending) {
-      return;
-    }
-
-    try {
-      setSending(true);
-      setError("");
-
-      const newMessage =
-        await sendMessage({
-          conversationId:
-            Number(conversationId),
-
-          senderId:
-            currentUserId,
-
-          content:
-            trimmedMessage,
-        });
+      event.preventDefault();
 
 
-      /*
-       * Add the newly sent message immediately
-       * to the chat window.
-       */
-      setMessages(
-        (currentMessages) => [
-          ...currentMessages,
-          newMessage,
-        ]
-      );
+      const trimmedMessage =
+        message.trim();
 
-      setMessage("");
 
-    } catch (err) {
-      console.error(
-        "Failed to send message:",
-        err
-      );
+      if (!trimmedMessage) {
+        return;
+      }
 
-      setError(
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to send message."
-      );
 
-    } finally {
-      setSending(false);
-    }
-  };
+      if (
+        !currentUserId ||
+        Number.isNaN(currentUserId)
+      ) {
+
+        setError(
+          "Please log in before sending a message."
+        );
+
+        return;
+      }
+
+
+      if (sending) {
+        return;
+      }
+
+
+      try {
+
+        setSending(true);
+        setError("");
+
+
+        const newMessage =
+          await sendMessage({
+
+            conversationId:
+              Number(conversationId),
+
+            senderId:
+              currentUserId,
+
+            content:
+              trimmedMessage,
+
+          });
+
+
+        /*
+         * Add message immediately.
+         */
+
+        setMessages(
+          (currentMessages) => [
+            ...currentMessages,
+            newMessage,
+          ]
+        );
+
+
+        setMessage("");
+
+
+      } catch (err) {
+
+        console.error(
+          "Failed to send message:",
+          err
+        );
+
+
+        setError(
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to send message."
+        );
+
+
+      } finally {
+
+        setSending(false);
+      }
+
+    };
 
 
   /*
@@ -268,8 +337,13 @@ function Chat() {
    * =========================================================
    */
 
-  if (loading) {
+  if (
+    loading ||
+    authLoading
+  ) {
+
     return (
+
       <section className="min-h-[70vh] flex items-center justify-center px-4">
 
         <div className="text-center">
@@ -286,6 +360,58 @@ function Chat() {
         </div>
 
       </section>
+
+    );
+  }
+
+
+  /*
+   * =========================================================
+   * NOT LOGGED IN
+   * =========================================================
+   */
+
+  if (!user) {
+
+    return (
+
+      <section className="max-w-4xl mx-auto px-4 py-16">
+
+        <div className="bg-white border rounded-2xl shadow-sm p-8 text-center">
+
+          <MessageCircle
+            size={48}
+            className="mx-auto text-gray-400"
+          />
+
+
+          <h2 className="text-2xl font-bold text-gray-900 mt-5">
+
+            Login Required
+
+          </h2>
+
+
+          <p className="text-gray-500 mt-3">
+
+            Please log in to use Mandilas Market chat.
+
+          </p>
+
+
+          <Link
+            to={`/login?redirect=/chat/${conversationId}`}
+            className="inline-flex items-center gap-2 mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
+          >
+
+            Login
+
+          </Link>
+
+        </div>
+
+      </section>
+
     );
   }
 
@@ -296,8 +422,13 @@ function Chat() {
    * =========================================================
    */
 
-  if (error && !conversation) {
+  if (
+    error &&
+    !conversation
+  ) {
+
     return (
+
       <section className="max-w-4xl mx-auto px-4 py-16">
 
         <div className="bg-white border rounded-2xl shadow-sm p-8 text-center">
@@ -307,44 +438,64 @@ function Chat() {
             className="mx-auto text-gray-400"
           />
 
+
           <h2 className="text-2xl font-bold text-gray-900 mt-5">
+
             Unable to open chat
+
           </h2>
 
+
           <p className="text-gray-500 mt-3">
+
             {error}
+
           </p>
+
 
           <Link
             to="/shop"
             className="inline-flex items-center gap-2 mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
           >
+
             <ArrowLeft size={18} />
+
             Back to Shop
+
           </Link>
 
         </div>
 
       </section>
+
     );
   }
 
 
   /*
    * =========================================================
-   * SELLER / BUYER INFORMATION
+   * DETERMINE OTHER USER
    * =========================================================
    */
 
   const isBuyer =
     currentUserId &&
-    Number(conversation?.buyerId) ===
-      Number(currentUserId);
+    Number(
+      conversation?.buyerId
+    ) ===
+    Number(
+      currentUserId
+    );
 
-  const otherUserId =
-    isBuyer
-      ? conversation?.sellerId
-      : conversation?.buyerId;
+
+  const isSeller =
+    currentUserId &&
+    Number(
+      conversation?.sellerId
+    ) ===
+    Number(
+      currentUserId
+    );
 
 
   /*
@@ -354,9 +505,11 @@ function Chat() {
    */
 
   return (
+
     <section className="bg-gray-50 min-h-[calc(100vh-80px)]">
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+
 
         {/* =================================================
             BACK
@@ -366,8 +519,11 @@ function Chat() {
           to="/shop"
           className="inline-flex items-center gap-2 text-green-700 font-semibold hover:underline mb-5"
         >
+
           <ArrowLeft size={18} />
+
           Back to Shop
+
         </Link>
 
 
@@ -376,6 +532,7 @@ function Chat() {
             ================================================= */}
 
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+
 
           {/* =================================================
               CHAT HEADER
@@ -392,13 +549,19 @@ function Chat() {
 
             </div>
 
+
             <div className="min-w-0 flex-1">
 
               <h1 className="font-bold text-lg truncate">
+
                 {isBuyer
                   ? "Seller"
-                  : "Buyer"}
+                  : isSeller
+                    ? "Buyer"
+                    : "Conversation"}
+
               </h1>
+
 
               <p className="text-sm text-gray-500 truncate">
 
@@ -414,13 +577,17 @@ function Chat() {
 
 
           {/* =================================================
-              ERROR MESSAGE
+              ERROR
               ================================================= */}
 
           {error && (
+
             <div className="mx-5 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+
               {error}
+
             </div>
+
           )}
 
 
@@ -439,12 +606,18 @@ function Chat() {
                   className="text-gray-300"
                 />
 
+
                 <h2 className="font-semibold text-gray-700 mt-4">
+
                   Start the conversation
+
                 </h2>
 
+
                 <p className="text-gray-500 text-sm mt-2">
+
                   Send a message to the seller about this product.
+
                 </p>
 
               </div>
@@ -464,7 +637,9 @@ function Chat() {
                         currentUserId
                       );
 
+
                     return (
+
                       <div
                         key={
                           item.id ||
@@ -486,10 +661,14 @@ function Chat() {
                         >
 
                           <p className="whitespace-pre-wrap break-words">
+
                             {item.content}
+
                           </p>
 
+
                           {item.createdAt && (
+
                             <p
                               className={`text-[11px] mt-2 ${
                                 mine
@@ -497,18 +676,24 @@ function Chat() {
                                   : "text-gray-400"
                               }`}
                             >
+
                               {new Date(
                                 item.createdAt
                               ).toLocaleString()}
+
                             </p>
+
                           )}
 
                         </div>
 
                       </div>
+
                     );
+
                   }
                 )}
+
 
                 <div
                   ref={
@@ -517,6 +702,7 @@ function Chat() {
                 />
 
               </div>
+
             )}
 
           </div>
@@ -548,6 +734,7 @@ function Chat() {
                 className="flex-1 h-12 border border-gray-300 rounded-xl px-4 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
               />
 
+
               <button
                 type="submit"
                 disabled={
@@ -558,12 +745,16 @@ function Chat() {
               >
 
                 {sending ? (
+
                   <Loader2
                     size={21}
                     className="animate-spin"
                   />
+
                 ) : (
+
                   <Send size={21} />
+
                 )}
 
               </button>
@@ -577,7 +768,9 @@ function Chat() {
       </div>
 
     </section>
+
   );
 }
+
 
 export default Chat;

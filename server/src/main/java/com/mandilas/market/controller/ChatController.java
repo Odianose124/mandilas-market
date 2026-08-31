@@ -28,11 +28,21 @@ public class ChatController {
     //
     // POST /api/chat/conversations
     //
-    // Body:
+    // The request can contain either:
+    //
+    // sellerId
+    //
+    // OR
+    //
+    // sellerEmail
+    //
+    // sellerEmail is used when sellerId is not provided.
+    //
+    // Example:
     //
     // {
     //   "buyerId": 1,
-    //   "sellerId": 2,
+    //   "sellerEmail": "seller@example.com",
     //   "productId": 10,
     //   "productName": "T-shirt by ODIRA"
     // }
@@ -45,20 +55,53 @@ public class ChatController {
 
         try {
 
+            // =====================================================
+            // BUYER ID
+            // =====================================================
+
             Long buyerId =
                     getLongValue(
                             request.get("buyerId")
                     );
 
-            Long sellerId =
-                    getLongValue(
-                            request.get("sellerId")
-                    );
+            if (buyerId == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "Buyer ID is required."
+                                )
+                        );
+            }
+
+
+            // =====================================================
+            // PRODUCT ID
+            // =====================================================
 
             Long productId =
                     getLongValue(
                             request.get("productId")
                     );
+
+            if (productId == null) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "Product ID is required."
+                                )
+                        );
+            }
+
+
+            // =====================================================
+            // PRODUCT NAME
+            // =====================================================
 
             String productName =
                     request.get("productName") != null
@@ -67,6 +110,102 @@ public class ChatController {
                                 .toString()
                             : null;
 
+
+            // =====================================================
+            // SELLER ID
+            // =====================================================
+            //
+            // First check whether the frontend already supplied
+            // the seller's database ID.
+            //
+
+            Long sellerId =
+                    getLongValue(
+                            request.get("sellerId")
+                    );
+
+
+            // =====================================================
+            // SELLER EMAIL FALLBACK
+            // =====================================================
+            //
+            // If sellerId is not available, use sellerEmail to
+            // find the seller's actual database ID.
+            //
+
+            if (sellerId == null) {
+
+                String sellerEmail = null;
+
+                if (request.get("sellerEmail") != null) {
+
+                    sellerEmail =
+                            request
+                                .get("sellerEmail")
+                                .toString()
+                                .trim();
+                }
+
+                if (
+                        sellerEmail == null ||
+                        sellerEmail.isEmpty()
+                ) {
+
+                    return ResponseEntity
+                            .badRequest()
+                            .body(
+                                    Map.of(
+                                            "message",
+                                            "Seller ID or seller email is required."
+                                    )
+                            );
+                }
+
+
+                sellerId =
+                        chatService.findUserIdByEmail(
+                                sellerEmail
+                        );
+            }
+
+
+            // =====================================================
+            // SELLER NOT FOUND
+            // =====================================================
+
+            if (sellerId == null) {
+
+                return ResponseEntity
+                        .status(HttpStatus.NOT_FOUND)
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "Seller account could not be found."
+                                )
+                        );
+            }
+
+
+            // =====================================================
+            // PREVENT SELLER FROM CHATTING WITH THEMSELVES
+            // =====================================================
+
+            if (buyerId.equals(sellerId)) {
+
+                return ResponseEntity
+                        .badRequest()
+                        .body(
+                                Map.of(
+                                        "message",
+                                        "You cannot chat with yourself."
+                                )
+                        );
+            }
+
+
+            // =====================================================
+            // CREATE OR GET CONVERSATION
+            // =====================================================
 
             Conversation conversation =
                     chatService.getOrCreateConversation(
@@ -81,6 +220,19 @@ public class ChatController {
                     conversation
             );
 
+
+        } catch (NumberFormatException error) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "Invalid buyer, seller, or product ID."
+                            )
+                    );
+
+
         } catch (IllegalArgumentException error) {
 
             return ResponseEntity
@@ -91,6 +243,7 @@ public class ChatController {
                                     error.getMessage()
                             )
                     );
+
 
         } catch (Exception error) {
 
@@ -275,13 +428,6 @@ public class ChatController {
     // POST
     // /api/chat/conversations/{conversationId}/messages
     //
-    // Body:
-    //
-    // {
-    //   "senderId": 1,
-    //   "content": "Hello, is this available?"
-    // }
-    //
 
     @PostMapping(
             "/conversations/{conversationId}/messages"
@@ -350,10 +496,6 @@ public class ChatController {
     // =========================================================
     // MARK MESSAGES AS READ
     // =========================================================
-    //
-    // PUT
-    // /api/chat/conversations/{conversationId}/read/{userId}
-    //
 
     @PutMapping(
             "/conversations/{conversationId}/read/{userId}"
@@ -409,10 +551,6 @@ public class ChatController {
     // =========================================================
     // UNREAD COUNT
     // =========================================================
-    //
-    // GET
-    // /api/chat/conversations/{conversationId}/unread/{userId}
-    //
 
     @GetMapping(
             "/conversations/{conversationId}/unread/{userId}"
@@ -482,8 +620,15 @@ public class ChatController {
             return ((Number) value).longValue();
         }
 
+        String stringValue =
+                value.toString().trim();
+
+        if (stringValue.isEmpty()) {
+            return null;
+        }
+
         return Long.parseLong(
-                value.toString()
+                stringValue
         );
     }
 }
