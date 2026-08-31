@@ -317,31 +317,179 @@ public class StoreService {
      * Authenticated seller management should use
      * seller ID instead.
      */
-    public Store getStoreBySellerEmail(
-            String email
+    // =========================================================
+// GET OR CREATE STORE BY SELLER EMAIL
+// =========================================================
+
+/*
+ * Public compatibility method.
+ *
+ * Used by the marketplace when a buyer clicks
+ * "Visit Store" from a product.
+ *
+ * Flow:
+ *
+ * Product
+ *    ↓
+ * sellerEmail
+ *    ↓
+ * User
+ *    ↓
+ * Store
+ *
+ * If the seller already has a store:
+ *
+ *     return existing store
+ *
+ * If the seller is an older seller and does not
+ * have a store yet:
+ *
+ *     automatically create the store
+ *
+ * This guarantees that existing sellers can also
+ * have working marketplace stores.
+ */
+
+@Transactional
+public Store getStoreBySellerEmail(
+        String email
+) {
+
+    // =====================================================
+    // VALIDATE EMAIL
+    // =====================================================
+
+    if (
+            email == null ||
+            email.trim().isEmpty()
     ) {
 
-        if (
-                email == null ||
-                email.trim().isEmpty()
-        ) {
-
-            throw new RuntimeException(
-                    "Seller email is required."
-            );
-        }
-
-
-        return storeRepository
-                .findBySellerEmailIgnoreCase(
-                        email.trim()
-                )
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Seller store not found."
-                        )
-                );
+        throw new RuntimeException(
+                "Seller email is required."
+        );
     }
+
+
+    String normalizedEmail =
+            email
+                    .trim()
+                    .toLowerCase();
+
+
+    // =====================================================
+    // FIND SELLER ACCOUNT
+    // =====================================================
+
+    User seller =
+            userRepository
+                    .findByEmail(
+                            normalizedEmail
+                    )
+                    .orElseThrow(() ->
+                            new RuntimeException(
+                                    "Seller account not found."
+                            )
+                    );
+
+
+    // =====================================================
+    // VERIFY SELLER ROLE
+    // =====================================================
+
+    if (
+            seller.getRole() !=
+                    User.Role.SELLER
+    ) {
+
+        throw new RuntimeException(
+                "This account does not belong to a seller."
+        );
+    }
+
+
+    // =====================================================
+    // FIND EXISTING STORE
+    // =====================================================
+
+    Store existingStore =
+            storeRepository
+                    .findBySellerId(
+                            seller.getId()
+                    )
+                    .orElse(null);
+
+
+    // =====================================================
+    // STORE ALREADY EXISTS
+    // =====================================================
+
+    if (existingStore != null) {
+
+        return existingStore;
+    }
+
+
+    // =====================================================
+    // STORE DOES NOT EXIST
+    // =====================================================
+
+    /*
+     * This handles sellers who registered before
+     * automatic store creation was introduced.
+     */
+
+    String storeName =
+            seller.getStoreName();
+
+
+    // =====================================================
+    // FALLBACK STORE NAME
+    // =====================================================
+
+    if (
+            storeName == null ||
+            storeName.trim().isEmpty()
+    ) {
+
+        String firstName =
+                seller.getFirstName() != null
+                        ? seller.getFirstName().trim()
+                        : "";
+
+        String lastName =
+                seller.getLastName() != null
+                        ? seller.getLastName().trim()
+                        : "";
+
+
+        storeName =
+                (firstName + " " + lastName)
+                        .trim();
+    }
+
+
+    // =====================================================
+    // FINAL FALLBACK
+    // =====================================================
+
+    if (
+            storeName == null ||
+            storeName.trim().isEmpty()
+    ) {
+
+        storeName = "Mandilas Seller";
+    }
+
+
+    // =====================================================
+    // CREATE STORE
+    // =====================================================
+
+    return createStoreForSeller(
+            seller,
+            storeName
+    );
+}
 
 
     // =========================================================
