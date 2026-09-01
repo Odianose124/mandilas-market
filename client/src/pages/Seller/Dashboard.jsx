@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  Link,
+} from "react-router-dom";
 
 import {
   Package,
@@ -10,369 +17,904 @@ import {
   RefreshCw,
   AlertCircle,
   Plus,
+  MessageCircle,
 } from "lucide-react";
 
-import { useAuth } from "../../context/AuthContext";
-import { useProducts } from "../../context/ProductContext";
-import { getOrdersBySellerEmail } from "../../services/orderService";
+import {
+  useAuth,
+} from "../../context/AuthContext";
+
+import {
+  useProducts,
+} from "../../context/ProductContext";
+
+import {
+  getOrdersBySellerEmail,
+} from "../../services/orderService";
+
+import {
+  getConversations,
+  getUnreadCount,
+} from "../../services/chatService";
+
 
 function Dashboard() {
-  const { user } = useAuth();
 
-  const { getSellerProducts } = useProducts();
+  const {
+    user,
+  } = useAuth();
 
-  const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const {
+    getSellerProducts,
+  } = useProducts();
+
+
+  const [
+    products,
+    setProducts,
+  ] = useState([]);
+
+
+  const [
+    orders,
+    setOrders,
+  ] = useState([]);
+
 
   /*
-   * ==========================================
+   * =========================================================
+   * CHAT STATE
+   * =========================================================
+   */
+
+  const [
+    conversations,
+    setConversations,
+  ] = useState([]);
+
+
+  const [
+    unreadMessages,
+    setUnreadMessages,
+  ] = useState(0);
+
+
+  /*
+   * =========================================================
+   * GENERAL STATE
+   * =========================================================
+   */
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
+
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+
+  /*
+   * =========================================================
+   * CURRENT SELLER ID
+   * =========================================================
+   */
+
+  const currentUserId =
+    user?.id
+      ? Number(user.id)
+      : null;
+
+
+  /*
+   * =========================================================
    * LOAD LIVE SELLER DATA
-   * ==========================================
-   *
-   * Products:
-   * /api/products/seller/{sellerEmail}
-   *
-   * Orders:
-   * /api/orders/seller/{sellerEmail}
+   * =========================================================
    */
-  const loadDashboardData = async () => {
-    if (!user?.email) {
-      setProducts([]);
-      setOrders([]);
-      setLoading(false);
-      return;
-    }
 
-    try {
-      setLoading(true);
-      setError("");
+  const loadDashboardData =
+    async () => {
 
-      const sellerEmail =
-  user.email.trim().toLowerCase();
+      if (!user?.email) {
 
-const [sellerProducts, sellerOrders] =
-  await Promise.all([
-    getSellerProducts(sellerEmail),
-    getOrdersBySellerEmail(sellerEmail),
-  ]);
+        setProducts([]);
+        setOrders([]);
+        setConversations([]);
+        setUnreadMessages(0);
+        setLoading(false);
 
-      setProducts(
-        Array.isArray(sellerProducts)
-          ? sellerProducts
-          : []
-      );
-
-      setOrders(
-        Array.isArray(sellerOrders)
-          ? sellerOrders
-          : []
-      );
-    } catch (err) {
-      console.error(
-        "Failed to load seller dashboard:",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "Failed to load your dashboard data."
-      );
-
-      setProducts([]);
-      setOrders([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /*
-   * Load dashboard when seller changes/login
-   */
-  useEffect(() => {
-    loadDashboardData();
-  }, [user?.email]);
-
-  /*
-   * ==========================================
-   * LIVE PRODUCT COUNT
-   * ==========================================
-   */
-  const productCount = products.length;
-
-  /*
-   * ==========================================
-   * LIVE ORDER COUNT
-   * ==========================================
-   */
-  const orderCount = orders.length;
-
-  /*
-   * ==========================================
-   * GET SELLER ORDER ITEMS
-   * ==========================================
-   *
-   * An order can contain products from
-   * multiple sellers.
-   *
-   * We only calculate the current seller's
-   * products from each order.
-   */
-  const sellerOrderItems = useMemo(() => {
-    if (!user?.email) {
-      return [];
-    }
-
-    const sellerEmail =
-      user.email.trim().toLowerCase();
-
-    const items = [];
-
-    orders.forEach((order) => {
-      if (!Array.isArray(order?.items)) {
         return;
       }
 
-      order.items.forEach((item) => {
-        if (!item) {
-          return;
-        }
 
-        const itemSellerEmail =
-          item.sellerEmail
-            ?.trim()
+      try {
+
+        setLoading(true);
+        setError("");
+
+
+        const sellerEmail =
+          user.email
+            .trim()
             .toLowerCase();
 
-        if (
-          itemSellerEmail === sellerEmail
-        ) {
-          items.push({
-            ...item,
-            order,
-          });
-        }
-      });
-    });
 
-    return items;
-  }, [orders, user?.email]);
+        /*
+         * =====================================================
+         * LOAD PRODUCTS + ORDERS
+         * =====================================================
+         */
 
-  /*
-   * ==========================================
-   * LIVE REVENUE
-   * ==========================================
-   *
-   * Revenue is calculated from the seller's
-   * actual order items.
-   *
-   * We exclude cancelled orders.
-   */
-  const revenue = useMemo(() => {
-    return sellerOrderItems
-      .filter((item) => {
-        const status =
-          item.order?.orderStatus
-            ?.toLowerCase();
+        const [
+          sellerProducts,
+          sellerOrders,
+        ] = await Promise.all([
 
-        return status !== "cancelled";
-      })
-      .reduce((total, item) => {
-        const itemTotal =
-          Number(item.total) ||
-          Number(item.price || 0) *
-            Number(item.quantity || 0);
+          getSellerProducts(
+            sellerEmail
+          ),
 
-        return total + itemTotal;
-      }, 0);
-  }, [sellerOrderItems]);
+          getOrdersBySellerEmail(
+            sellerEmail
+          ),
 
-  /*
-   * ==========================================
-   * LIVE UNIQUE CUSTOMERS
-   * ==========================================
-   */
-  const customerCount = useMemo(() => {
-    const customers = new Set();
+        ]);
 
-    orders.forEach((order) => {
-      if (order?.email) {
-        customers.add(
-          order.email.trim().toLowerCase()
+
+        setProducts(
+          Array.isArray(
+            sellerProducts
+          )
+            ? sellerProducts
+            : []
         );
-      }
-    });
 
-    return customers.size;
-  }, [orders]);
+
+        setOrders(
+          Array.isArray(
+            sellerOrders
+          )
+            ? sellerOrders
+            : []
+        );
+
+
+        /*
+         * =====================================================
+         * LOAD SELLER CONVERSATIONS
+         * =====================================================
+         *
+         * IMPORTANT:
+         *
+         * The existing Seller Messages page uses the logged
+         * in user's ID to load conversations.
+         *
+         * We use the SAME method here.
+         *
+         * This means we are NOT creating another messaging
+         * system.
+         */
+
+        if (
+          currentUserId &&
+          !Number.isNaN(
+            currentUserId
+          )
+        ) {
+
+          try {
+
+            const sellerConversations =
+              await getConversations(
+                currentUserId
+              );
+
+
+            const conversationList =
+              Array.isArray(
+                sellerConversations
+              )
+                ? sellerConversations
+                : [];
+
+
+            setConversations(
+              conversationList
+            );
+
+
+            /*
+             * =================================================
+             * LOAD TOTAL UNREAD MESSAGES
+             * =================================================
+             */
+
+            let totalUnread = 0;
+
+
+            await Promise.all(
+              conversationList.map(
+                async (
+                  conversation
+                ) => {
+
+                  if (
+                    !conversation?.id
+                  ) {
+                    return;
+                  }
+
+
+                  try {
+
+                    const unreadResult =
+                      await getUnreadCount({
+
+                        conversationId:
+                          Number(
+                            conversation.id
+                          ),
+
+                        userId:
+                          currentUserId,
+
+                      });
+
+
+                    let count = 0;
+
+
+                    if (
+                      typeof unreadResult ===
+                      "number"
+                    ) {
+
+                      count =
+                        unreadResult;
+
+                    } else {
+
+                      count =
+                        Number(
+                          unreadResult?.count ??
+                          unreadResult?.unreadCount ??
+                          0
+                        );
+
+                    }
+
+
+                    if (
+                      !Number.isNaN(
+                        count
+                      )
+                    ) {
+
+                      totalUnread +=
+                        count;
+
+                    }
+
+                  } catch (
+                    unreadError
+                  ) {
+
+                    console.error(
+                      "Failed to load unread message count:",
+                      unreadError
+                    );
+
+                  }
+
+                }
+              )
+            );
+
+
+            setUnreadMessages(
+              totalUnread
+            );
+
+          } catch (
+            chatError
+          ) {
+
+            /*
+             * Do not break the seller dashboard if
+             * chat is temporarily unavailable.
+             */
+
+            console.error(
+              "Failed to load seller conversations:",
+              chatError
+            );
+
+
+            setConversations([]);
+            setUnreadMessages(0);
+
+          }
+
+        } else {
+
+          setConversations([]);
+          setUnreadMessages(0);
+
+        }
+
+      } catch (
+        err
+      ) {
+
+        console.error(
+          "Failed to load seller dashboard:",
+          err
+        );
+
+
+        setError(
+          err?.message ||
+          "Failed to load your dashboard data."
+        );
+
+
+        setProducts([]);
+        setOrders([]);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
 
   /*
-   * ==========================================
+   * =========================================================
+   * LOAD DASHBOARD
+   * =========================================================
+   */
+
+  useEffect(() => {
+
+    loadDashboardData();
+
+  }, [
+    user?.email,
+    user?.id,
+  ]);
+
+
+  /*
+   * =========================================================
+   * LIVE PRODUCT COUNT
+   * =========================================================
+   */
+
+  const productCount =
+    products.length;
+
+
+  /*
+   * =========================================================
+   * LIVE ORDER COUNT
+   * =========================================================
+   */
+
+  const orderCount =
+    orders.length;
+
+
+  /*
+   * =========================================================
+   * GET SELLER ORDER ITEMS
+   * =========================================================
+   */
+
+  const sellerOrderItems =
+    useMemo(() => {
+
+      if (!user?.email) {
+        return [];
+      }
+
+
+      const sellerEmail =
+        user.email
+          .trim()
+          .toLowerCase();
+
+
+      const items = [];
+
+
+      orders.forEach(
+        (
+          order
+        ) => {
+
+          if (
+            !Array.isArray(
+              order?.items
+            )
+          ) {
+
+            return;
+          }
+
+
+          order.items.forEach(
+            (
+              item
+            ) => {
+
+              if (!item) {
+                return;
+              }
+
+
+              const itemSellerEmail =
+                item.sellerEmail
+                  ?.trim()
+                  .toLowerCase();
+
+
+              if (
+                itemSellerEmail ===
+                sellerEmail
+              ) {
+
+                items.push({
+                  ...item,
+                  order,
+                });
+
+              }
+
+            }
+          );
+
+        }
+      );
+
+
+      return items;
+
+    }, [
+      orders,
+      user?.email,
+    ]);
+
+
+  /*
+   * =========================================================
+   * LIVE REVENUE
+   * =========================================================
+   */
+
+  const revenue =
+    useMemo(() => {
+
+      return sellerOrderItems
+        .filter(
+          (
+            item
+          ) => {
+
+            const status =
+              item.order?.orderStatus
+                ?.toLowerCase();
+
+
+            return status !==
+              "cancelled";
+
+          }
+        )
+        .reduce(
+          (
+            total,
+            item
+          ) => {
+
+            const itemTotal =
+              Number(
+                item.total
+              ) ||
+              Number(
+                item.price || 0
+              ) *
+              Number(
+                item.quantity || 0
+              );
+
+
+            return (
+              total +
+              itemTotal
+            );
+
+          },
+          0
+        );
+
+    }, [
+      sellerOrderItems,
+    ]);
+
+
+  /*
+   * =========================================================
+   * LIVE UNIQUE CUSTOMERS
+   * =========================================================
+   */
+
+  const customerCount =
+    useMemo(() => {
+
+      const customers =
+        new Set();
+
+
+      orders.forEach(
+        (
+          order
+        ) => {
+
+          if (
+            order?.email
+          ) {
+
+            customers.add(
+              order.email
+                .trim()
+                .toLowerCase()
+            );
+
+          }
+
+        }
+      );
+
+
+      return customers.size;
+
+    }, [
+      orders,
+    ]);
+
+
+  /*
+   * =========================================================
    * RECENT ORDERS
-   * ==========================================
+   * =========================================================
    */
-  const recentOrders = useMemo(() => {
-    return [...orders]
-      .sort((a, b) => {
-        const dateA = new Date(
-          a?.createdAt || 0
-        ).getTime();
 
-        const dateB = new Date(
-          b?.createdAt || 0
-        ).getTime();
+  const recentOrders =
+    useMemo(() => {
 
-        return dateB - dateA;
-      })
-      .slice(0, 5);
-  }, [orders]);
+      return [
+        ...orders,
+      ]
+        .sort(
+          (
+            a,
+            b
+          ) => {
+
+            const dateA =
+              new Date(
+                a?.createdAt || 0
+              ).getTime();
+
+
+            const dateB =
+              new Date(
+                b?.createdAt || 0
+              ).getTime();
+
+
+            return dateB -
+              dateA;
+
+          }
+        )
+        .slice(
+          0,
+          5
+        );
+
+    }, [
+      orders,
+    ]);
+
 
   /*
-   * ==========================================
+   * =========================================================
    * SALES TOTALS
-   * ==========================================
-   *
-   * Used for the sales overview.
+   * =========================================================
    */
-  const salesOverview = useMemo(() => {
-    const totals = {};
 
-    sellerOrderItems.forEach((item) => {
-      const order = item.order;
+  const salesOverview =
+    useMemo(() => {
 
-      const status =
-        order?.orderStatus
-          ?.toLowerCase();
+      const totals = {};
 
-      if (status === "cancelled") {
-        return;
-      }
 
-      const date = order?.createdAt
-        ? new Date(order.createdAt)
-        : null;
+      sellerOrderItems.forEach(
+        (
+          item
+        ) => {
 
-      if (!date || Number.isNaN(date.getTime())) {
-        return;
-      }
+          const order =
+            item.order;
 
-      const monthKey =
-        date.toLocaleDateString("en-US", {
-          month: "short",
-          year: "numeric",
-        });
 
-      const itemTotal =
-        Number(item.total) ||
-        Number(item.price || 0) *
-          Number(item.quantity || 0);
+          const status =
+            order?.orderStatus
+              ?.toLowerCase();
 
-      totals[monthKey] =
-        (totals[monthKey] || 0) +
-        itemTotal;
-    });
 
-    return Object.entries(totals)
-      .map(([month, amount]) => ({
-        month,
-        amount,
-      }))
-      .sort(
-        (a, b) =>
-          new Date(a.month) -
-          new Date(b.month)
+          if (
+            status ===
+            "cancelled"
+          ) {
+
+            return;
+
+          }
+
+
+          const date =
+            order?.createdAt
+              ? new Date(
+                  order.createdAt
+                )
+              : null;
+
+
+          if (
+            !date ||
+            Number.isNaN(
+              date.getTime()
+            )
+          ) {
+
+            return;
+
+          }
+
+
+          const monthKey =
+            date.toLocaleDateString(
+              "en-US",
+              {
+                month:
+                  "short",
+                year:
+                  "numeric",
+              }
+            );
+
+
+          const itemTotal =
+            Number(
+              item.total
+            ) ||
+            Number(
+              item.price || 0
+            ) *
+            Number(
+              item.quantity || 0
+            );
+
+
+          totals[monthKey] =
+            (
+              totals[monthKey] ||
+              0
+            ) +
+            itemTotal;
+
+        }
+      );
+
+
+      return Object.entries(
+        totals
       )
-      .slice(-6);
-  }, [sellerOrderItems]);
+        .map(
+          (
+            [
+              month,
+              amount,
+            ]
+          ) => ({
+            month,
+            amount,
+          })
+        )
+        .sort(
+          (
+            a,
+            b
+          ) =>
+            new Date(
+              a.month
+            ) -
+            new Date(
+              b.month
+            )
+        )
+        .slice(
+          -6
+        );
+
+    }, [
+      sellerOrderItems,
+    ]);
+
 
   /*
-   * ==========================================
+   * =========================================================
    * CURRENCY FORMAT
-   * ==========================================
+   * =========================================================
    */
-  const formatCurrency = (amount) => {
-    return `₦${Number(
-      amount || 0
-    ).toLocaleString("en-NG")}`;
-  };
+
+  const formatCurrency =
+    (
+      amount
+    ) => {
+
+      return `₦${Number(
+        amount || 0
+      ).toLocaleString(
+        "en-NG"
+      )}`;
+
+    };
+
 
   /*
-   * ==========================================
+   * =========================================================
    * ORDER STATUS STYLE
-   * ==========================================
+   * =========================================================
    */
-  const getStatusClass = (status) => {
-    const normalized =
-      status?.toLowerCase();
 
-    if (
-      normalized === "delivered" ||
-      normalized === "completed"
-    ) {
-      return "bg-green-100 text-green-700";
-    }
+  const getStatusClass =
+    (
+      status
+    ) => {
 
-    if (
-      normalized === "cancelled" ||
-      normalized === "failed"
-    ) {
-      return "bg-red-100 text-red-700";
-    }
+      const normalized =
+        status?.toLowerCase();
 
-    if (
-      normalized === "shipped" ||
-      normalized === "processing"
-    ) {
-      return "bg-blue-100 text-blue-700";
-    }
 
-    return "bg-yellow-100 text-yellow-700";
-  };
+      if (
+        normalized ===
+          "delivered" ||
+        normalized ===
+          "completed"
+      ) {
+
+        return "bg-green-100 text-green-700";
+
+      }
+
+
+      if (
+        normalized ===
+          "cancelled" ||
+        normalized ===
+          "failed"
+      ) {
+
+        return "bg-red-100 text-red-700";
+
+      }
+
+
+      if (
+        normalized ===
+          "shipped" ||
+        normalized ===
+          "processing"
+      ) {
+
+        return "bg-blue-100 text-blue-700";
+
+      }
+
+
+      return "bg-yellow-100 text-yellow-700";
+
+    };
+
 
   /*
-   * ==========================================
-   * ORDER SELLER AMOUNT
-   * ==========================================
+   * =========================================================
+   * SELLER ORDER AMOUNT
+   * =========================================================
    */
-  const getSellerOrderAmount = (order) => {
-    if (
-      !order ||
-      !Array.isArray(order.items)
-    ) {
-      return 0;
-    }
 
-    const sellerEmail =
-      user?.email
-        ?.trim()
-        .toLowerCase();
+  const getSellerOrderAmount =
+    (
+      order
+    ) => {
 
-    return order.items
-      .filter(
-        (item) =>
-          item?.sellerEmail
-            ?.trim()
-            .toLowerCase() ===
-          sellerEmail
-      )
-      .reduce((total, item) => {
-        const itemTotal =
-          Number(item.total) ||
-          Number(item.price || 0) *
-            Number(item.quantity || 0);
+      if (
+        !order ||
+        !Array.isArray(
+          order.items
+        )
+      ) {
 
-        return total + itemTotal;
-      }, 0);
-  };
+        return 0;
+
+      }
+
+
+      const sellerEmail =
+        user?.email
+          ?.trim()
+          .toLowerCase();
+
+
+      return order.items
+        .filter(
+          (
+            item
+          ) =>
+            item?.sellerEmail
+              ?.trim()
+              .toLowerCase() ===
+            sellerEmail
+        )
+        .reduce(
+          (
+            total,
+            item
+          ) => {
+
+            const itemTotal =
+              Number(
+                item.total
+              ) ||
+              Number(
+                item.price || 0
+              ) *
+              Number(
+                item.quantity || 0
+              );
+
+
+            return (
+              total +
+              itemTotal
+            );
+
+          },
+          0
+        );
+
+    };
+
 
   /*
-   * ==========================================
+   * =========================================================
    * LOADING STATE
-   * ==========================================
+   * =========================================================
    */
+
   if (loading) {
+
     return (
+
       <section className="min-h-screen bg-gray-100 p-4 md:p-8">
 
         <div className="flex items-center justify-center min-h-[500px]">
@@ -385,7 +927,9 @@ const [sellerProducts, sellerOrders] =
             />
 
             <p className="mt-4 text-gray-500">
+
               Loading your seller dashboard...
+
             </p>
 
           </div>
@@ -393,38 +937,58 @@ const [sellerProducts, sellerOrders] =
         </div>
 
       </section>
+
     );
+
   }
 
+
+  /*
+   * =========================================================
+   * DASHBOARD
+   * =========================================================
+   */
+
   return (
+
     <section className="min-h-screen bg-gray-100 p-4 md:p-8">
 
-      {/* ==========================================
+
+      {/* =====================================================
           HEADER
-      ========================================== */}
+      ===================================================== */}
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5 mb-10">
 
         <div>
 
           <h1 className="text-3xl md:text-4xl font-bold">
+
             Seller Dashboard
+
           </h1>
 
+
           <p className="text-gray-500 mt-2">
+
             Welcome back
             {user?.firstName
               ? `, ${user.firstName}`
-              : ""}
-            .
+              : ""}.
+
           </p>
 
         </div>
 
+
         <button
           type="button"
-          onClick={loadDashboardData}
-          disabled={loading}
+          onClick={
+            loadDashboardData
+          }
+          disabled={
+            loading
+          }
           className="bg-white border border-gray-300 hover:bg-gray-50 px-5 py-3 rounded-xl flex items-center justify-center gap-2 font-semibold transition disabled:opacity-50"
         >
 
@@ -443,11 +1007,13 @@ const [sellerProducts, sellerOrders] =
 
       </div>
 
-      {/* ==========================================
+
+      {/* =====================================================
           ERROR
-      ========================================== */}
+      ===================================================== */}
 
       {error && (
+
         <div className="mb-8 bg-red-50 border border-red-200 text-red-700 rounded-xl p-5 flex gap-3">
 
           <AlertCircle
@@ -458,33 +1024,46 @@ const [sellerProducts, sellerOrders] =
           <div>
 
             <p className="font-semibold">
+
               Unable to load dashboard data
+
             </p>
 
+
             <p className="text-sm mt-1">
+
               {error}
+
             </p>
+
 
             <button
               type="button"
-              onClick={loadDashboardData}
+              onClick={
+                loadDashboardData
+              }
               className="mt-3 underline text-sm font-semibold"
             >
+
               Try Again
+
             </button>
 
           </div>
 
         </div>
+
       )}
 
-      {/* ==========================================
+
+      {/* =====================================================
           LIVE STATS
-      ========================================== */}
+      ===================================================== */}
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
 
-        {/* Products */}
+
+        {/* PRODUCTS */}
 
         <Link
           to="/seller/products"
@@ -493,25 +1072,37 @@ const [sellerProducts, sellerOrders] =
 
           <div className="w-14 h-14 rounded-xl bg-blue-500 flex items-center justify-center text-white">
 
-            <Package size={28} />
+            <Package
+              size={28}
+            />
 
           </div>
 
+
           <h2 className="text-gray-500 mt-5">
+
             Products
+
           </h2>
 
+
           <h3 className="text-3xl font-bold mt-2">
+
             {productCount}
+
           </h3>
 
+
           <p className="text-sm text-gray-400 mt-2">
+
             Products in your store
+
           </p>
 
         </Link>
 
-        {/* Orders */}
+
+        {/* ORDERS */}
 
         <Link
           to="/seller/orders"
@@ -520,79 +1111,178 @@ const [sellerProducts, sellerOrders] =
 
           <div className="w-14 h-14 rounded-xl bg-green-500 flex items-center justify-center text-white">
 
-            <ShoppingCart size={28} />
+            <ShoppingCart
+              size={28}
+            />
 
           </div>
 
+
           <h2 className="text-gray-500 mt-5">
+
             Orders
+
           </h2>
 
+
           <h3 className="text-3xl font-bold mt-2">
+
             {orderCount}
+
           </h3>
 
+
           <p className="text-sm text-gray-400 mt-2">
+
             Orders containing your products
+
           </p>
 
         </Link>
 
-        {/* Revenue */}
+
+        {/* REVENUE */}
 
         <div className="bg-white rounded-2xl shadow-sm p-6">
 
           <div className="w-14 h-14 rounded-xl bg-yellow-500 flex items-center justify-center text-white">
 
-            <Wallet size={28} />
+            <Wallet
+              size={28}
+            />
 
           </div>
 
+
           <h2 className="text-gray-500 mt-5">
+
             Revenue
+
           </h2>
 
+
           <h3 className="text-3xl font-bold mt-2">
-            {formatCurrency(revenue)}
+
+            {formatCurrency(
+              revenue
+            )}
+
           </h3>
 
+
           <p className="text-sm text-gray-400 mt-2">
+
             From your orders
+
           </p>
 
         </div>
 
-        {/* Customers */}
+
+        {/* CUSTOMERS */}
 
         <div className="bg-white rounded-2xl shadow-sm p-6">
 
           <div className="w-14 h-14 rounded-xl bg-purple-500 flex items-center justify-center text-white">
 
-            <Users size={28} />
+            <Users
+              size={28}
+            />
 
           </div>
 
+
           <h2 className="text-gray-500 mt-5">
+
             Customers
+
           </h2>
 
+
           <h3 className="text-3xl font-bold mt-2">
+
             {customerCount}
+
           </h3>
 
+
           <p className="text-sm text-gray-400 mt-2">
+
             Unique customers
+
           </p>
 
         </div>
 
+
+        {/* MESSAGES */}
+
+        <Link
+          to="/seller/messages"
+          className="bg-white rounded-2xl shadow-sm p-6 block hover:shadow-xl transition relative"
+        >
+
+          {unreadMessages > 0 && (
+
+            <span className="absolute top-4 right-4 min-w-[28px] h-7 px-2 bg-red-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+
+              {unreadMessages > 99
+                ? "99+"
+                : unreadMessages}
+
+            </span>
+
+          )}
+
+
+          <div className="w-14 h-14 rounded-xl bg-orange-500 flex items-center justify-center text-white">
+
+            <MessageCircle
+              size={28}
+            />
+
+          </div>
+
+
+          <h2 className="text-gray-500 mt-5">
+
+            Messages
+
+          </h2>
+
+
+          <h3 className="text-3xl font-bold mt-2">
+
+            {conversations.length}
+
+          </h3>
+
+
+          <p className="text-sm text-gray-400 mt-2">
+
+            {unreadMessages > 0
+              ? `${unreadMessages} unread message${
+                  unreadMessages === 1
+                    ? ""
+                    : "s"
+                }`
+              : "Buyer conversations"}
+
+          </p>
+
+        </Link>
+
       </div>
 
-      {/* ==========================================
-          QUICK ACTIONS
-      ========================================== */}
 
-      <div className="grid md:grid-cols-3 gap-6 mt-10">
+      {/* =====================================================
+          QUICK ACTIONS
+      ===================================================== */}
+
+      <div className="grid md:grid-cols-4 gap-6 mt-10">
+
+
+        {/* ADD PRODUCT */}
 
         <Link
           to="/seller/add-product"
@@ -601,19 +1291,29 @@ const [sellerProducts, sellerOrders] =
 
           <div className="flex items-center gap-3">
 
-            <Plus size={24} />
+            <Plus
+              size={24}
+            />
 
             <h3 className="text-xl font-bold">
+
               Add Product
+
             </h3>
 
           </div>
 
+
           <p className="mt-2 text-green-100">
+
             Upload a new product to your store.
+
           </p>
 
         </Link>
+
+
+        {/* ORDERS */}
 
         <Link
           to="/seller/orders"
@@ -622,19 +1322,66 @@ const [sellerProducts, sellerOrders] =
 
           <div className="flex items-center gap-3">
 
-            <ShoppingCart size={24} />
+            <ShoppingCart
+              size={24}
+            />
 
             <h3 className="text-xl font-bold">
+
               View Orders
+
             </h3>
 
           </div>
 
+
           <p className="mt-2 text-blue-100">
+
             Manage your customer orders.
+
           </p>
 
         </Link>
+
+
+        {/* MESSAGES */}
+
+        <Link
+          to="/seller/messages"
+          className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl p-6 text-left transition block"
+        >
+
+          <div className="flex items-center gap-3">
+
+            <MessageCircle
+              size={24}
+            />
+
+            <h3 className="text-xl font-bold">
+
+              Messages
+
+            </h3>
+
+          </div>
+
+
+          <p className="mt-2 text-orange-100">
+
+            {unreadMessages > 0
+              ? `${unreadMessages} unread message${
+                  unreadMessages === 1
+                    ? ""
+                    : "s"
+                } from buyers.`
+              : "View messages from your buyers."}
+
+          </p>
+
+        </Link>
+
+
+        {/* WALLET */}
 
         <Link
           to="/seller/wallet"
@@ -643,25 +1390,33 @@ const [sellerProducts, sellerOrders] =
 
           <div className="flex items-center gap-3">
 
-            <Wallet size={24} />
+            <Wallet
+              size={24}
+            />
 
             <h3 className="text-xl font-bold">
+
               Wallet
+
             </h3>
 
           </div>
 
+
           <p className="mt-2 text-yellow-100">
+
             View your earnings and withdrawals.
+
           </p>
 
         </Link>
 
       </div>
 
-      {/* ==========================================
+
+      {/* =====================================================
           RECENT ORDERS
-      ========================================== */}
+      ===================================================== */}
 
       <div className="bg-white rounded-2xl shadow-sm mt-10 p-6">
 
@@ -670,23 +1425,32 @@ const [sellerProducts, sellerOrders] =
           <div>
 
             <h2 className="text-2xl font-bold">
+
               Recent Orders
+
             </h2>
 
+
             <p className="text-gray-500 text-sm mt-1">
+
               Orders containing your products
+
             </p>
 
           </div>
+
 
           <Link
             to="/seller/orders"
             className="text-green-600 font-semibold hover:underline"
           >
+
             View All Orders
+
           </Link>
 
         </div>
+
 
         <div className="overflow-x-auto">
 
@@ -724,6 +1488,7 @@ const [sellerProducts, sellerOrders] =
 
             </thead>
 
+
             <tbody>
 
               {recentOrders.length === 0 ? (
@@ -740,12 +1505,18 @@ const [sellerProducts, sellerOrders] =
                       className="mx-auto text-gray-300"
                     />
 
+
                     <p className="mt-3 font-semibold">
+
                       No orders yet
+
                     </p>
 
+
                     <p className="text-sm mt-1">
+
                       Your real customer orders will appear here.
+
                     </p>
 
                   </td>
@@ -754,129 +1525,184 @@ const [sellerProducts, sellerOrders] =
 
               ) : (
 
-                recentOrders.map((order) => {
+                recentOrders.map(
+                  (
+                    order
+                  ) => {
 
-                  const sellerItems =
-                    Array.isArray(order.items)
-                      ? order.items.filter(
-                          (item) =>
-                            item?.sellerEmail
-                              ?.trim()
-                              .toLowerCase() ===
-                            user?.email
-                              ?.trim()
-                              .toLowerCase()
-                        )
-                      : [];
+                    const sellerItems =
+                      Array.isArray(
+                        order.items
+                      )
+                        ? order.items.filter(
+                            (
+                              item
+                            ) =>
+                              item?.sellerEmail
+                                ?.trim()
+                                .toLowerCase() ===
+                              user?.email
+                                ?.trim()
+                                .toLowerCase()
+                          )
+                        : [];
 
-                  return (
-                    <tr
-                      key={order.id}
-                      className="border-b hover:bg-gray-50 transition"
-                    >
 
-                      <td className="py-4 font-semibold">
-                        {order.id
-                          ? `MD-${String(
-                              order.id
-                            ).padStart(5, "0")}`
-                          : "-"}
-                      </td>
+                    return (
 
-                      <td>
-                        <div>
+                      <tr
+                        key={
+                          order.id
+                        }
+                        className="border-b hover:bg-gray-50 transition"
+                      >
 
-                          <p className="font-medium">
-                            {order.fullName ||
-                              "Customer"}
-                          </p>
+                        <td className="py-4 font-semibold">
 
-                          <p className="text-sm text-gray-400">
-                            {order.email || "-"}
-                          </p>
+                          {order.id
+                            ? `MD-${String(
+                                order.id
+                              ).padStart(
+                                5,
+                                "0"
+                              )}`
+                            : "-"}
 
-                        </div>
-                      </td>
+                        </td>
 
-                      <td>
 
-                        <div className="space-y-1">
+                        <td>
 
-                          {sellerItems
-                            .slice(0, 2)
-                            .map((item) => (
-                              <p
-                                key={
-                                  item.id ||
-                                  item.productId
-                                }
-                                className="text-sm"
-                              >
-                                {item.productName ||
-                                  "Product"}
+                          <div>
 
-                                {Number(
-                                  item.quantity
-                                ) > 1 &&
-                                  ` × ${item.quantity}`}
-                              </p>
-                            ))}
+                            <p className="font-medium">
 
-                          {sellerItems.length >
-                            2 && (
-                            <p className="text-xs text-gray-400">
-                              +
-                              {sellerItems.length -
-                                2}{" "}
-                              more
+                              {order.fullName ||
+                                "Customer"}
+
                             </p>
+
+
+                            <p className="text-sm text-gray-400">
+
+                              {order.email ||
+                                "-"}
+
+                            </p>
+
+                          </div>
+
+                        </td>
+
+
+                        <td>
+
+                          <div className="space-y-1">
+
+                            {sellerItems
+                              .slice(
+                                0,
+                                2
+                              )
+                              .map(
+                                (
+                                  item
+                                ) => (
+
+                                  <p
+                                    key={
+                                      item.id ||
+                                      item.productId
+                                    }
+                                    className="text-sm"
+                                  >
+
+                                    {item.productName ||
+                                      "Product"}
+
+                                    {Number(
+                                      item.quantity
+                                    ) > 1 &&
+                                      ` × ${item.quantity}`}
+
+                                  </p>
+
+                                )
+                              )}
+
+
+                            {sellerItems.length >
+                              2 && (
+
+                              <p className="text-xs text-gray-400">
+
+                                +
+                                {sellerItems.length -
+                                  2}{" "}
+                                more
+
+                              </p>
+
+                            )}
+
+                          </div>
+
+                        </td>
+
+
+                        <td className="font-semibold text-green-700">
+
+                          {formatCurrency(
+                            getSellerOrderAmount(
+                              order
+                            )
                           )}
 
-                        </div>
+                        </td>
 
-                      </td>
 
-                      <td className="font-semibold text-green-700">
-                        {formatCurrency(
-                          getSellerOrderAmount(
-                            order
-                          )
-                        )}
-                      </td>
+                        <td>
 
-                      <td>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(
+                              order.orderStatus
+                            )}`}
+                          >
 
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(
-                            order.orderStatus
-                          )}`}
-                        >
-                          {order.orderStatus ||
-                            "Pending"}
-                        </span>
+                            {order.orderStatus ||
+                              "Pending"}
 
-                      </td>
+                          </span>
 
-                      <td className="text-sm text-gray-500">
+                        </td>
 
-                        {order.createdAt
-                          ? new Date(
-                              order.createdAt
-                            ).toLocaleDateString(
-                              "en-NG",
-                              {
-                                day: "2-digit",
-                                month: "short",
-                                year: "numeric",
-                              }
-                            )
-                          : "-"}
 
-                      </td>
+                        <td className="text-sm text-gray-500">
 
-                    </tr>
-                  );
-                })
+                          {order.createdAt
+                            ? new Date(
+                                order.createdAt
+                              ).toLocaleDateString(
+                                "en-NG",
+                                {
+                                  day:
+                                    "2-digit",
+                                  month:
+                                    "short",
+                                  year:
+                                    "numeric",
+                                }
+                              )
+                            : "-"}
+
+                        </td>
+
+                      </tr>
+
+                    );
+
+                  }
+                )
 
               )}
 
@@ -888,9 +1714,10 @@ const [sellerProducts, sellerOrders] =
 
       </div>
 
-      {/* ==========================================
+
+      {/* =====================================================
           SALES OVERVIEW
-      ========================================== */}
+      ===================================================== */}
 
       <div className="bg-white rounded-2xl shadow-sm mt-10 p-6">
 
@@ -901,19 +1728,26 @@ const [sellerProducts, sellerOrders] =
             className="text-green-600"
           />
 
+
           <div>
 
             <h2 className="text-2xl font-bold">
+
               Sales Overview
+
             </h2>
 
+
             <p className="text-gray-500 text-sm">
+
               Based on your actual orders
+
             </p>
 
           </div>
 
         </div>
+
 
         {salesOverview.length === 0 ? (
 
@@ -926,12 +1760,18 @@ const [sellerProducts, sellerOrders] =
                 className="mx-auto text-gray-300"
               />
 
+
               <p className="text-gray-500 mt-3">
+
                 No sales data yet
+
               </p>
 
+
               <p className="text-sm text-gray-400 mt-1">
+
                 Sales will appear here when customers purchase your products.
+
               </p>
 
             </div>
@@ -943,57 +1783,77 @@ const [sellerProducts, sellerOrders] =
           <div className="space-y-5">
 
             {salesOverview.map(
-              (sale) => {
+              (
+                sale
+              ) => {
 
                 const maxAmount =
                   Math.max(
                     ...salesOverview.map(
-                      (item) =>
+                      (
+                        item
+                      ) =>
                         item.amount
                     ),
                     1
                   );
 
+
                 const percentage =
                   Math.min(
                     100,
-                    (sale.amount /
-                      maxAmount) *
-                      100
+                    (
+                      sale.amount /
+                      maxAmount
+                    ) *
+                    100
                   );
 
+
                 return (
+
                   <div
-                    key={sale.month}
+                    key={
+                      sale.month
+                    }
                   >
 
                     <div className="flex justify-between items-center mb-2">
 
                       <span className="font-medium text-gray-700">
+
                         {sale.month}
+
                       </span>
 
+
                       <span className="font-semibold text-green-700">
+
                         {formatCurrency(
                           sale.amount
                         )}
+
                       </span>
 
                     </div>
+
 
                     <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
 
                       <div
                         className="h-full bg-green-600 rounded-full transition-all duration-500"
                         style={{
-                          width: `${percentage}%`,
+                          width:
+                            `${percentage}%`,
                         }}
                       />
 
                     </div>
 
                   </div>
+
                 );
+
               }
             )}
 
@@ -1004,7 +1864,10 @@ const [sellerProducts, sellerOrders] =
       </div>
 
     </section>
+
   );
+
 }
+
 
 export default Dashboard;

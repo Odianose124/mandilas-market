@@ -21,7 +21,7 @@ import {
   getConversation,
   getMessages,
   sendMessage,
-  markMessagesAsRead,
+  markConversationAsRead,
 } from "../services/chatService";
 
 import {
@@ -108,17 +108,36 @@ function Chat() {
         setError("");
 
 
+        const numericConversationId =
+          Number(
+            conversationId
+          );
+
+
+        if (
+          Number.isNaN(
+            numericConversationId
+          ) ||
+          numericConversationId <= 0
+        ) {
+
+          throw new Error(
+            "Invalid conversation ID."
+          );
+        }
+
+
         const [
           conversationData,
           messagesData,
         ] = await Promise.all([
 
           getConversation(
-            Number(conversationId)
+            numericConversationId
           ),
 
           getMessages(
-            Number(conversationId)
+            numericConversationId
           ),
 
         ]);
@@ -142,7 +161,7 @@ function Chat() {
 
 
         /*
-         * Mark messages as read.
+         * Mark this conversation as read.
          */
 
         if (
@@ -152,20 +171,15 @@ function Chat() {
 
           try {
 
-            await markMessagesAsRead({
-
-              conversationId:
-                Number(conversationId),
-
-              userId:
-                currentUserId,
-
-            });
+            await markConversationAsRead(
+              numericConversationId,
+              currentUserId
+            );
 
           } catch (readError) {
 
             console.error(
-              "Failed to mark messages as read:",
+              "Failed to mark conversation as read:",
               readError
             );
 
@@ -184,7 +198,6 @@ function Chat() {
         if (!cancelled) {
 
           setError(
-            err?.response?.data?.message ||
             err?.message ||
             "Failed to load conversation."
           );
@@ -282,7 +295,9 @@ function Chat() {
           await sendMessage({
 
             conversationId:
-              Number(conversationId),
+              Number(
+                conversationId
+              ),
 
             senderId:
               currentUserId,
@@ -294,13 +309,17 @@ function Chat() {
 
 
         /*
-         * Add message immediately.
+         * Add the newly sent message
+         * immediately to the chat.
          */
 
         setMessages(
           (currentMessages) => [
+
             ...currentMessages,
+
             newMessage,
+
           ]
         );
 
@@ -317,7 +336,6 @@ function Chat() {
 
 
         setError(
-          err?.response?.data?.message ||
           err?.message ||
           "Failed to send message."
         );
@@ -458,7 +476,9 @@ function Chat() {
             className="inline-flex items-center gap-2 mt-6 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold"
           >
 
-            <ArrowLeft size={18} />
+            <ArrowLeft
+              size={18}
+            />
 
             Back to Shop
 
@@ -474,7 +494,7 @@ function Chat() {
 
   /*
    * =========================================================
-   * DETERMINE OTHER USER
+   * DETERMINE CURRENT USER ROLE
    * =========================================================
    */
 
@@ -500,6 +520,38 @@ function Chat() {
 
   /*
    * =========================================================
+   * DETERMINE OTHER PERSON
+   * =========================================================
+   */
+
+  let otherPersonName =
+    "Conversation";
+
+
+  if (isBuyer) {
+
+    otherPersonName =
+      conversation?.sellerName ||
+      conversation?.seller?.name ||
+      conversation?.sellerEmail ||
+      "Seller";
+
+  } else if (isSeller) {
+
+    otherPersonName =
+      conversation?.buyerName ||
+      conversation?.buyer?.name ||
+      conversation?.buyerEmail ||
+      (
+        conversation?.buyerId
+          ? `Buyer #${conversation.buyerId}`
+          : "Buyer"
+      );
+  }
+
+
+  /*
+   * =========================================================
    * RENDER
    * =========================================================
    */
@@ -513,30 +565,36 @@ function Chat() {
 
         {/* =================================================
             BACK
-            ================================================= */}
+        ================================================= */}
 
         <Link
-          to="/shop"
+          to={
+            isSeller
+              ? "/seller/messages"
+              : "/messages"
+          }
           className="inline-flex items-center gap-2 text-green-700 font-semibold hover:underline mb-5"
         >
 
-          <ArrowLeft size={18} />
+          <ArrowLeft
+            size={18}
+          />
 
-          Back to Shop
+          Back to Messages
 
         </Link>
 
 
         {/* =================================================
             CHAT CONTAINER
-            ================================================= */}
+        ================================================= */}
 
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
 
 
           {/* =================================================
               CHAT HEADER
-              ================================================= */}
+          ================================================= */}
 
           <div className="border-b px-5 py-4 flex items-center gap-4">
 
@@ -554,11 +612,7 @@ function Chat() {
 
               <h1 className="font-bold text-lg truncate">
 
-                {isBuyer
-                  ? "Seller"
-                  : isSeller
-                    ? "Buyer"
-                    : "Conversation"}
+                {otherPersonName}
 
               </h1>
 
@@ -578,7 +632,7 @@ function Chat() {
 
           {/* =================================================
               ERROR
-              ================================================= */}
+          ================================================= */}
 
           {error && (
 
@@ -593,7 +647,7 @@ function Chat() {
 
           {/* =================================================
               MESSAGES
-              ================================================= */}
+          ================================================= */}
 
           <div className="h-[500px] overflow-y-auto p-5 bg-gray-50">
 
@@ -627,11 +681,15 @@ function Chat() {
               <div className="space-y-4">
 
                 {messages.map(
-                  (item, index) => {
+                  (
+                    item,
+                    index
+                  ) => {
 
                     const mine =
                       Number(
-                        item.senderId
+                        item?.senderId ??
+                        item?.sender?.id
                       ) ===
                       Number(
                         currentUserId
@@ -642,8 +700,8 @@ function Chat() {
 
                       <div
                         key={
-                          item.id ||
-                          `${item.createdAt}-${index}`
+                          item?.id ||
+                          `${item?.createdAt}-${index}`
                         }
                         className={`flex ${
                           mine
@@ -662,12 +720,14 @@ function Chat() {
 
                           <p className="whitespace-pre-wrap break-words">
 
-                            {item.content}
+                            {item?.content ??
+                             item?.message ??
+                             ""}
 
                           </p>
 
 
-                          {item.createdAt && (
+                          {item?.createdAt && (
 
                             <p
                               className={`text-[11px] mt-2 ${
@@ -710,7 +770,7 @@ function Chat() {
 
           {/* =================================================
               MESSAGE INPUT
-              ================================================= */}
+          ================================================= */}
 
           <form
             onSubmit={
@@ -724,7 +784,9 @@ function Chat() {
               <input
                 type="text"
                 value={message}
-                onChange={(event) =>
+                onChange={(
+                  event
+                ) =>
                   setMessage(
                     event.target.value
                   )
@@ -753,7 +815,9 @@ function Chat() {
 
                 ) : (
 
-                  <Send size={21} />
+                  <Send
+                    size={21}
+                  />
 
                 )}
 

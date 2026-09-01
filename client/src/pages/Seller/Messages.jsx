@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  Link,
+} from "react-router-dom";
+
 import {
   ArrowLeft,
   Loader2,
@@ -8,11 +17,14 @@ import {
   Store,
 } from "lucide-react";
 
-import { useAuth } from "../../context/AuthContext";
+import {
+  useAuth,
+} from "../../context/AuthContext";
 
 import {
-  getUserConversations,
-  getUnreadCount,
+  getConversations,
+  getMessages,
+  markConversationAsRead,
 } from "../../services/chatService";
 
 
@@ -76,6 +88,119 @@ function Messages() {
 
   /*
    * =========================================================
+   * LOAD UNREAD COUNT
+   * =========================================================
+   *
+   * We calculate unread messages from the messages returned
+   * by the conversation.
+   *
+   * A message is unread for the current user when:
+   *
+   * senderId !== currentUserId
+   *
+   * and it has not been marked as read.
+   *
+   * The code also supports common backend field names:
+   *
+   * read
+   * isRead
+   * readAt
+   * seen
+   * isSeen
+   *
+   * =========================================================
+   */
+
+  const getConversationUnreadCount =
+    async (
+      conversation
+    ) => {
+
+      if (
+        !conversation?.id ||
+        !currentUserId ||
+        Number.isNaN(currentUserId)
+      ) {
+
+        return 0;
+      }
+
+
+      try {
+
+        const result =
+          await getMessages(
+            Number(
+              conversation.id
+            )
+          );
+
+
+        const messageList =
+          Array.isArray(result)
+            ? result
+            : [];
+
+
+        return messageList.filter(
+          (
+            item
+          ) => {
+
+            const senderId =
+              Number(
+                item?.senderId ??
+                item?.sender?.id
+              );
+
+
+            /*
+             * Ignore messages sent by
+             * the current logged-in user.
+             */
+
+            if (
+              senderId ===
+              currentUserId
+            ) {
+
+              return false;
+            }
+
+
+            /*
+             * Support different backend
+             * read-status field names.
+             */
+
+            const isRead =
+              item?.read === true ||
+              item?.isRead === true ||
+              item?.seen === true ||
+              item?.isSeen === true ||
+              Boolean(
+                item?.readAt
+              );
+
+
+            return !isRead;
+          }
+        ).length;
+
+      } catch (err) {
+
+        console.error(
+          "Failed to calculate unread messages:",
+          err
+        );
+
+        return 0;
+      }
+    };
+
+
+  /*
+   * =========================================================
    * LOAD CONVERSATIONS
    * =========================================================
    */
@@ -92,6 +217,7 @@ function Messages() {
         ) {
 
           setConversations([]);
+          setUnreadCounts({});
           setLoading(false);
 
           return;
@@ -108,12 +234,12 @@ function Messages() {
 
 
           /*
-           * Get every conversation
-           * belonging to this user.
+           * Get all conversations belonging
+           * to the logged-in user.
            */
 
           const result =
-            await getUserConversations(
+            await getConversations(
               currentUserId
             );
 
@@ -129,8 +255,13 @@ function Messages() {
            */
 
           const sortedConversations =
-            [...conversationList].sort(
-              (a, b) => {
+            [
+              ...conversationList,
+            ].sort(
+              (
+                a,
+                b
+              ) => {
 
                 const dateA =
                   new Date(
@@ -146,7 +277,10 @@ function Messages() {
                     0
                   ).getTime();
 
-                return dateB - dateA;
+                return (
+                  dateB -
+                  dateA
+                );
               }
             );
 
@@ -167,71 +301,29 @@ function Messages() {
 
           await Promise.all(
             sortedConversations.map(
-              async (conversation) => {
+              async (
+                conversation
+              ) => {
 
                 if (
                   !conversation?.id
                 ) {
+
                   return;
                 }
 
 
-                try {
-
-                  const unreadResult =
-                    await getUnreadCount({
-                      conversationId:
-                        Number(
-                          conversation.id
-                        ),
-
-                      userId:
-                        currentUserId,
-                    });
-
-
-                  let count = 0;
-
-
-                  if (
-                    typeof unreadResult ===
-                    "number"
-                  ) {
-
-                    count =
-                      unreadResult;
-
-                  } else {
-
-                    count =
-                      Number(
-                        unreadResult?.count ??
-                        unreadResult?.unreadCount ??
-                        0
-                      );
-                  }
-
-
-                  counts[
-                    conversation.id
-                  ] =
-                    Number.isNaN(count)
-                      ? 0
-                      : count;
-
-                } catch (
-                  unreadError
-                ) {
-
-                  console.error(
-                    "Failed to load unread count:",
-                    unreadError
+                const count =
+                  await getConversationUnreadCount(
+                    conversation
                   );
 
-                  counts[
-                    conversation.id
-                  ] = 0;
-                }
+
+                counts[
+                  conversation.id
+                ] =
+                  count;
+
               }
             )
           );
@@ -250,13 +342,18 @@ function Messages() {
 
 
           setError(
-            err?.response?.data?.message ||
             err?.message ||
             "Failed to load your messages."
           );
 
 
-          setConversations([]);
+          setConversations(
+            []
+          );
+
+          setUnreadCounts(
+            {}
+          );
 
         } finally {
 
@@ -299,6 +396,7 @@ function Messages() {
    * Check for new conversations/messages
    * every 5 seconds.
    *
+   * =========================================================
    */
 
   useEffect(() => {
@@ -377,7 +475,7 @@ function Messages() {
 
   /*
    * =========================================================
-   * REFRESH BUTTON
+   * REFRESH
    * =========================================================
    */
 
@@ -484,7 +582,6 @@ function Messages() {
         ================================================= */}
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 mb-8">
-
 
           <div>
 
@@ -684,18 +781,63 @@ function Messages() {
 
 
                   /*
-                   * Current conversation
-                   * stores buyerId and sellerId.
-                   *
-                   * For now we display the
-                   * buyer ID until we connect
-                   * the User information.
+                   * Determine whether the
+                   * current user is the buyer
+                   * or seller.
                    */
 
-                  const buyerLabel =
-                    conversation?.buyerId
-                      ? `Buyer #${conversation.buyerId}`
-                      : "Buyer";
+                  const isCurrentUserBuyer =
+                    Number(
+                      conversation?.buyerId
+                    ) ===
+                    Number(
+                      currentUserId
+                    );
+
+
+                  const isCurrentUserSeller =
+                    Number(
+                      conversation?.sellerId
+                    ) ===
+                    Number(
+                      currentUserId
+                    );
+
+
+                  /*
+                   * Display the other person's
+                   * identity.
+                   */
+
+                  let personLabel =
+                    "Buyer";
+
+
+                  if (
+                    isCurrentUserBuyer
+                  ) {
+
+                    personLabel =
+                      conversation?.sellerName ||
+                      conversation?.seller?.name ||
+                      conversation?.sellerEmail ||
+                      "Seller";
+
+                  } else if (
+                    isCurrentUserSeller
+                  ) {
+
+                    personLabel =
+                      conversation?.buyerName ||
+                      conversation?.buyer?.name ||
+                      conversation?.buyerEmail ||
+                      (
+                        conversation?.buyerId
+                          ? `Buyer #${conversation.buyerId}`
+                          : "Buyer"
+                      );
+
+                  }
 
 
                   return (
@@ -709,7 +851,9 @@ function Messages() {
                     >
 
 
-                      {/* AVATAR */}
+                      {/* =================================================
+                          AVATAR
+                      ================================================= */}
 
                       <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
 
@@ -721,12 +865,13 @@ function Messages() {
                       </div>
 
 
-                      {/* INFORMATION */}
+                      {/* =================================================
+                          INFORMATION
+                      ================================================= */}
 
                       <div className="min-w-0 flex-1">
 
                         <div className="flex items-center justify-between gap-3">
-
 
                           <h3
                             className={`truncate ${
@@ -736,7 +881,7 @@ function Messages() {
                             } text-gray-900`}
                           >
 
-                            {buyerLabel}
+                            {personLabel}
 
                           </h3>
 
@@ -778,7 +923,9 @@ function Messages() {
                       </div>
 
 
-                      {/* OPEN */}
+                      {/* =================================================
+                          OPEN
+                      ================================================= */}
 
                       <span className="text-green-700 font-semibold text-sm hidden sm:block">
 
